@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Updated Color Palette with your dark blue
@@ -16,60 +16,17 @@ const colors = {
   textLight: '#6B7280'      // Gray-500
 };
 
-// Maharashtra cities data
-const MAHARASHTRA_CITIES = [
-  {
-    id: 'mumbai',
-    name: 'Mumbai',
-    image: 'https://images.unsplash.com/photo-1595675024853-0f3ec9098ac7?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'mumbai-1', name: 'Andheri Hub', address: 'Near Metro Station, Andheri East', bikes: 45 },
-      { id: 'mumbai-2', name: 'Bandra Center', address: 'Linking Road, Bandra West', bikes: 38 },
-      { id: 'mumbai-3', name: 'Powai Junction', address: 'Hiranandani, Powai', bikes: 32 }
-    ]
-  },
-  {
-    id: 'pune',
-    name: 'Pune',
-    image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'pune-1', name: 'Koregaon Park Hub', address: 'North Main Road, Koregaon Park', bikes: 28 },
-      { id: 'pune-2', name: 'Hinjewadi Center', address: 'Phase 1, Hinjewadi IT Park', bikes: 35 }
-    ]
-  },
-  {
-    id: 'nashik',
-    name: 'Nashik',
-    image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'nashik-1', name: 'City Center Hub', address: 'Main Road, Nashik Road', bikes: 20 }
-    ]
-  },
-  {
-    id: 'nagpur',
-    name: 'Nagpur',
-    image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'nagpur-1', name: 'Sitabuldi Hub', address: 'Central Nagpur, Sitabuldi', bikes: 22 }
-    ]
-  },
-  {
-    id: 'aurangabad',
-    name: 'Aurangabad',
-    image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'aurangabad-1', name: 'CIDCO Hub', address: 'CIDCO Area, Aurangabad', bikes: 15 }
-    ]
-  },
-  {
-    id: 'kolhapur',
-    name: 'Kolhapur',
-    image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-    stores: [
-      { id: 'kolhapur-1', name: 'Mahadwar Hub', address: 'Near Palace, Mahadwar Road', bikes: 12 }
-    ]
-  }
-];
+// API configuration
+const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8081';
+
+// Default fallback images
+const DEFAULT_IMAGES = {
+  city: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMUExRTgyIi8+CjxyZWN0IHg9IjUwIiB5PSIxMDAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjU5RTBCIiBvcGFjaXR5PSIwLjMiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjE1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Q2l0eTwvdGV4dD4KPC9zdmc+',
+  bike1: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSJsaW5lYXItZ3JhZGllbnQoNDVkZWcsICMxMEI5ODEsICMxQTFFODIpIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TcG9ydCBCaWtlPC90ZXh0Pgo8L3N2Zz4=',
+  bike2: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRUY0NDQ0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ci8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Dcml1aXNlcjwvdGV4dD4KPC9zdmc+',
+  bike3: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjNzc0OEU1Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Ub3VyaW5nPC90ZXh0Pgo8L3N2Zz4=',
+  bike4: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjU5RTBCIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0Ci8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMUYyOTM3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BZHZlbnR1cmU8L3RleHQ+Cjwvc3ZnPg=='
+};
 
 export default function RentalSearch() {
   const navigate = useNavigate();
@@ -84,21 +41,208 @@ export default function RentalSearch() {
   const [dropoffTime, setDropoffTime] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
 
+  // Data state for backend integration
+  const [cities, setCities] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   // Calendar navigation state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
-  // Simplified dropdown states - only one can be open at a time
+  // Simplified dropdown states
   const [showCityModal, setShowCityModal] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Scroll to top on component mount
-  useEffect(() => {
-    window.scrollTo(0, 0);
+  // API Configuration
+  const API_ENDPOINTS = useMemo(() => ({
+    getActiveCities: `${BASE_URL}/api/cities/active`,
+    getActiveStores: `${BASE_URL}/api/stores/active`,
+    getAvailableBikes: `${BASE_URL}/api/bikes/available`
+  }), []);
+
+  // ✅ Enhanced error handling for your backend response format
+const makeApiCall = useCallback(async (url, options = {}) => {
+  const defaultHeaders = {
+    'Accept': 'application/json'
+  };
+
+  const defaultOptions = {
+    method: 'GET',
+    headers: {
+      ...defaultHeaders,
+      ...options.headers
+    },
+    ...options
+  };
+
+  try {
+    console.log('🔄 Making API call to:', url);
+    const response = await fetch(url, defaultOptions);
+    console.log('📥 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const responseData = await response.json();
+    console.log('✅ API Response data:', responseData);
+    
+    // ✅ Handle your backend's success/error format
+    if (responseData.success === false) {
+      throw new Error(responseData.message || 'API returned error');
+    }
+    
+    return responseData;
+    
+  } catch (error) {
+    console.error('💥 API Call Error:', error);
+    throw error;
+  }
+}, []);
+
+
+  // Image URL helper function
+  const getImageUrl = useCallback((imagePath) => {
+    if (!imagePath || imagePath.trim() === '') return null;
+    
+    const path = imagePath.trim();
+    
+    // If it's already a full URL
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    
+    // If it starts with uploads/
+    if (path.startsWith('/uploads/') || path.startsWith('uploads/')) {
+    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+  }
+  
+    
+    
+    // Default: assume it's in uploads directory
+    return `${BASE_URL}/uploads/${path}`;
   }, []);
 
-  // Get current date and time with proper timezone handling
+  // Image Component with error handling
+  const ImageWithFallback = React.memo(({ src, alt, className, fallback = DEFAULT_IMAGES.city }) => {
+    const [hasError, setHasError] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const imageUrl = useMemo(() => {
+      return src ? getImageUrl(src) : null;
+    }, [src, getImageUrl]);
+
+    const handleImageError = useCallback(() => {
+      console.log(`⚠️ Failed to load image:`, imageUrl);
+      setHasError(true);
+      setIsLoading(false);
+    }, [imageUrl]);
+
+    const handleImageLoad = useCallback(() => {
+      setHasError(false);
+      setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
+      if (imageUrl) {
+        setHasError(false);
+        setIsLoading(true);
+      }
+    }, [imageUrl]);
+
+    if (!imageUrl || hasError) {
+      return <img src={fallback} alt={alt} className={className} />;
+    }
+
+    return (
+      <div className="relative">
+        {isLoading && (
+          <div className={`${className} bg-gray-100 flex items-center justify-center absolute inset-0 animate-pulse`}>
+            <span className="text-xs text-gray-400">Loading...</span>
+          </div>
+        )}
+        <img 
+          src={imageUrl}
+          alt={alt}
+          className={className}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          loading="lazy"
+        />
+      </div>
+    );
+  });
+
+  ImageWithFallback.displayName = 'ImageWithFallback';
+
+  // ✅ FIX: Fetch cities function with proper dependency management
+  const fetchActiveCities = useCallback(async () => {
+    if (loading) return; // Prevent multiple calls
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      console.log('🔄 Fetching active cities from:', API_ENDPOINTS.getActiveCities);
+      const responseData = await makeApiCall(API_ENDPOINTS.getActiveCities);
+      
+      // Handle different response formats
+      const citiesData = responseData?.data || responseData || [];
+      const validCitiesData = Array.isArray(citiesData) ? citiesData : [];
+      
+      setCities(validCitiesData);
+      console.log('✅ Cities data updated:', validCitiesData.length, 'cities');
+      
+    } catch (err) {
+      setError('Failed to fetch cities: ' + err.message);
+      console.error('❌ Error fetching cities:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_ENDPOINTS.getActiveCities, makeApiCall, loading]); // Removed extra dependencies
+
+  // ✅ FIX: Fetch stores function
+  // ✅ Fix the fetchActiveStores function to properly extract data
+const fetchActiveStores = useCallback(async () => {
+  try {
+    console.log('🔄 Fetching active stores from:', API_ENDPOINTS.getActiveStores);
+    const responseData = await makeApiCall(API_ENDPOINTS.getActiveStores);
+    
+    // ✅ Since your backend returns {success: true, data: [...], count: 5}
+    // Extract the data array correctly
+    let storesData = [];
+    if (responseData && typeof responseData === 'object') {
+      storesData = responseData.data || responseData || [];
+    } else {
+      storesData = responseData || [];
+    }
+    
+    const validStoresData = Array.isArray(storesData) ? storesData : [];
+    
+    setStores(validStoresData);
+    console.log('✅ Stores data updated:', validStoresData.length, 'stores');
+    console.log('🔍 First store data:', validStoresData[0]); // Debug log
+    
+  } catch (err) {
+    console.error('❌ Error fetching stores:', err);
+  }
+}, [API_ENDPOINTS.getActiveStores, makeApiCall]);
+
+
+  // ✅ FIX: Load data on component mount - ONLY ONCE
+  useEffect(() => {
+    console.log('🚀 Component mounted, API Base URL:', BASE_URL);
+    
+    // Load cities and stores
+    fetchActiveCities();
+    fetchActiveStores();
+    window.scrollTo(0, 0);
+  }, []); // Empty dependency array to run only once on mount
+
+  // Get current date and time
   const getCurrentDateTime = () => {
     const now = new Date();
     const bufferTime = new Date(now.getTime() + (30 * 60000));
@@ -106,16 +250,16 @@ export default function RentalSearch() {
     const currentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const currentTime = `${String(bufferTime.getHours()).padStart(2, '0')}:${String(bufferTime.getMinutes()).padStart(2, '0')}`;
     
-    return { currentDate, currentTime, currentDateTime: now, bufferDateTime: bufferTime };
+    return { currentDate, currentTime, currentDateTime: now };
   };
 
   const { currentDate, currentTime, currentDateTime } = getCurrentDateTime();
 
-  // Month names for display
+  // Month names
   const monthNames = ["January", "February", "March", "April", "May", "June", 
                      "July", "August", "September", "October", "November", "December"];
 
-  // Generate calendar days with proper date handling for any month/year
+  // Generate calendar days
   const generateCalendarDays = (month = selectedMonth, year = selectedYear) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -130,7 +274,6 @@ export default function RentalSearch() {
     
     for (let i = startDate - 1; i >= 0; i--) {
       const day = prevMonthLastDay - i;
-      const prevDate = new Date(prevYear, prevMonth, day);
       const prevDateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
         date: day,
@@ -143,7 +286,6 @@ export default function RentalSearch() {
 
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayDate = new Date(year, month, day);
       const dayDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
         date: day,
@@ -154,13 +296,12 @@ export default function RentalSearch() {
       });
     }
 
-    // Next month days to fill the grid
+    // Next month days
     const totalCells = Math.ceil(days.length / 7) * 7;
     const nextMonth = month === 11 ? 0 : month + 1;
     const nextYear = month === 11 ? year + 1 : year;
     
     for (let day = 1; days.length < totalCells; day++) {
-      const nextDate = new Date(nextYear, nextMonth, day);
       const nextDateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
         date: day,
@@ -193,7 +334,7 @@ export default function RentalSearch() {
     }
   };
 
-  // Generate time slots with filtering based on selected date
+  // Generate time slots
   const generateTimeSlots = (selectedDateStr = null) => {
     const slots = [];
     for (let hour = 0; hour < 24; hour++) {
@@ -218,7 +359,7 @@ export default function RentalSearch() {
     return slots;
   };
 
-  // Auto-calculate 24 hours later date and time
+  // Auto-calculate dropoff date/time
   const calculateDropoffDateTime = (pickupDateStr, pickupTimeStr) => {
     if (!pickupDateStr || !pickupTimeStr) return { date: '', time: '' };
     
@@ -236,26 +377,27 @@ export default function RentalSearch() {
     setActiveDropdown('');
   };
 
-  // Enhanced auto-flow functions with better UX
+  // Handle city selection
   const handleCitySelect = (cityId) => {
     setSelectedCity(cityId);
     setSelectedStore('');
     setPickupMode('');
     setShowCityModal(false);
     
-    const cityData = MAHARASHTRA_CITIES.find(city => city.id === cityId);
-    if (cityData?.stores.length === 1 && pickupMode === 'store') {
-      setSelectedStore(cityData.stores[0].id);
-      setTimeout(() => setActiveDropdown('pickupDate'), 300);
-    }
+    // Auto-open pickup mode selection
+    setTimeout(() => {
+      document.querySelector('input[name="pickupMode"]')?.focus();
+    }, 100);
   };
 
+  // Handle store selection
   const handleStoreSelect = (storeId) => {
     setSelectedStore(storeId);
     closeAllDropdowns();
     setTimeout(() => setActiveDropdown('pickupDate'), 200);
   };
 
+  // Handle date selection
   const handleDateSelect = (date, type) => {
     if (date < currentDate) return;
     
@@ -286,11 +428,10 @@ export default function RentalSearch() {
     }
   };
 
+  // Handle time selection
   const handleTimeSelect = (time, type) => {
     if (type === 'pickup') {
-      if (pickupDate === currentDate && time < currentTime) {
-        return;
-      }
+      if (pickupDate === currentDate && time < currentTime) return;
       
       setPickupTime(time);
       
@@ -303,25 +444,22 @@ export default function RentalSearch() {
       setActiveDropdown('');
       setTimeout(() => setActiveDropdown('dropoffDate'), 200);
     } else {
-      if (dropoffDate === currentDate && time < currentTime) {
-        return;
-      }
-      
-      if (dropoffDate === pickupDate && pickupTime && time <= pickupTime) {
-        return;
-      }
+      if (dropoffDate === currentDate && time < currentTime) return;
+      if (dropoffDate === pickupDate && pickupTime && time <= pickupTime) return;
       
       setDropoffTime(time);
       setActiveDropdown('');
     }
   };
 
+  // Handle today selection
   const handleSelectToday = (type) => {
     setSelectedMonth(currentDateTime.getMonth());
     setSelectedYear(currentDateTime.getFullYear());
     handleDateSelect(currentDate, type);
   };
 
+  // Format functions
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr + 'T00:00:00');
@@ -343,29 +481,63 @@ export default function RentalSearch() {
     });
   };
 
-  const selectedCityData = MAHARASHTRA_CITIES.find(city => city.id === selectedCity);
+  // Get bike image fallback
+  const getBikeImage = (index) => {
+    const bikeImages = [DEFAULT_IMAGES.bike1, DEFAULT_IMAGES.bike2, DEFAULT_IMAGES.bike3, DEFAULT_IMAGES.bike4];
+    return bikeImages[index % bikeImages.length];
+  };
 
+  // Get selected city data
+  const selectedCityData = cities.find(city => city.id === selectedCity);
+
+  // Get stores for selected city (filtered)
+ const cityStores = useMemo(() => {
+  if (!selectedCity || !stores.length) {
+    console.log('🔍 No city selected or no stores:', { selectedCity, storesLength: stores.length });
+    return [];
+  }
+
+  console.log('🔍 Filtering stores for city:', selectedCity);
+  console.log('🔍 Available stores:', stores);
+  console.log('🔍 Sample store data:', stores[0]);
+    
+     const filteredStores = stores; // Remove filtering logic temporarily
+  
+  console.log('🔍 Filtered stores result:', filteredStores);
+  return filteredStores;
+  
+  // ✅ Later, when we know the store data structure, use proper filtering:
+  // return stores.filter(store => {
+  //   const storeCityId = store.cityId || store.city?.id;
+  //   return storeCityId === parseInt(selectedCity);
+  // });
+}, [stores, selectedCity]);
+
+  // Form submission
   const onSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Format dates for API call
+      const startDate = new Date(`${pickupDate}T${pickupTime}:00`);
+      const endDate = new Date(`${dropoffDate}T${dropoffTime}:00`);
       
       const params = new URLSearchParams({
         city: selectedCity,
         pickupMode,
         store: pickupMode === 'store' ? selectedStore : '',
         deliveryAddress: pickupMode === 'delivery' ? deliveryAddress : '',
-        pickupDate,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
         pickupTime,
-        dropoffDate,
         dropoffTime
       });
       
-      navigate(`/rental?${params.toString()}`);
+      navigate(`/bikes?${params.toString()}`);
     } catch (error) {
       console.error('Search failed:', error);
+      setError('Search failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -375,31 +547,32 @@ export default function RentalSearch() {
     (pickupMode === 'delivery' ? deliveryAddress : selectedStore) && 
     pickupDate && pickupTime && dropoffDate && dropoffTime;
 
-  // Close dropdowns when clicking outside
+  // Event listeners for closing dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.dropdown-container')) {
         closeAllDropdowns();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  // Close dropdown when pressing Escape
-  useEffect(() => {
     const handleEscapeKey = (event) => {
       if (event.key === 'Escape') {
         closeAllDropdowns();
       }
     };
+
+    document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscapeKey);
-    return () => document.removeEventListener('keydown', handleEscapeKey);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
   }, []);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: colors.light }}>
-      {/* Hero Section with Side-by-Side Layout - Using your dark blue color */}
+      {/* Hero Section with Side-by-Side Layout */}
       <div style={{ backgroundColor: colors.primary }}>
         <div className="max-w-6xl mx-auto px-4 py-12">
           <div className="grid lg:grid-cols-2 gap-8 items-start">
@@ -410,6 +583,23 @@ export default function RentalSearch() {
                   Search your next ride
                 </h3>
                 
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-4 p-3 border rounded-lg" style={{ backgroundColor: `${colors.danger}15`, borderColor: colors.danger }}>
+                    <p className="text-sm" style={{ color: colors.danger }}>{error}</p>
+                    <button 
+                      onClick={() => {
+                        setError('');
+                        fetchActiveCities();
+                      }}
+                      className="text-sm underline mt-1 hover:opacity-80"
+                      style={{ color: colors.danger }}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+                
                 <form onSubmit={onSubmit} className="space-y-5">
                   {/* City Selection */}
                   <div>
@@ -419,14 +609,17 @@ export default function RentalSearch() {
                     <button
                       type="button"
                       onClick={() => setShowCityModal(true)}
+                      disabled={loading}
                       className="w-full text-left p-3 border-2 rounded-lg transition-colors text-sm font-medium"
                       style={{
                         borderColor: selectedCity ? colors.primary : colors.border,
                         backgroundColor: selectedCity ? `${colors.primary}15` : colors.white,
-                        color: selectedCity ? colors.dark : colors.textLight
+                        color: selectedCity ? colors.dark : colors.textLight,
+                        opacity: loading ? 0.5 : 1,
+                        cursor: loading ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      {selectedCityData?.name || 'Select City'}
+                      {loading ? 'Loading cities...' : (selectedCityData?.cityName || 'Select City')}
                     </button>
                   </div>
 
@@ -468,31 +661,33 @@ export default function RentalSearch() {
                   )}
 
                   {/* Store Selection */}
-                  {selectedCity && pickupMode === 'store' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-                        Store
-                      </label>
-                      <select
-                        value={selectedStore}
-                        onChange={(e) => handleStoreSelect(e.target.value)}
-                        disabled={!selectedCity}
-                        className="w-full p-3 border-2 rounded-lg transition-colors text-sm font-medium focus:outline-none focus:ring-0"
-                        style={{
-                          borderColor: selectedStore ? colors.primary : colors.border,
-                          backgroundColor: selectedStore ? `${colors.primary}15` : colors.white,
-                          color: selectedStore ? colors.dark : colors.textLight
-                        }}
-                      >
-                        <option value="">Select Store</option>
-                        {selectedCityData?.stores.map(store => (
-                          <option key={store.id} value={store.id}>
-                            {store.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  {/* Store Selection - Updated to use your backend field names */}
+{selectedCity && pickupMode === 'store' && (
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
+      Store ({cityStores.length} available)
+    </label>
+    <select
+      value={selectedStore}
+      onChange={(e) => handleStoreSelect(e.target.value)}
+      className="w-full p-3 border-2 rounded-lg transition-colors text-sm font-medium focus:outline-none focus:ring-0"
+      style={{
+        borderColor: selectedStore ? colors.primary : colors.border,
+        backgroundColor: selectedStore ? `${colors.primary}15` : colors.white,
+        color: selectedStore ? colors.dark : colors.textLight
+      }}
+    >
+      <option value="">Select Store</option>
+      {cityStores.map(store => (
+        <option key={store.id} value={store.id}>
+          {/* ✅ Updated to use your backend field names */}
+          {store.storeName} - {store.storeAddress}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
+
 
                   {/* Delivery Address */}
                   {selectedCity && pickupMode === 'delivery' && (
@@ -928,15 +1123,15 @@ export default function RentalSearch() {
                 <div className="space-y-4">
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
-                      src="https://www.yamaha-motor.com/content/dam/yamaha/products/sport/r15/2022-Yamaha-YZF-R15-EU-IconBlue-Studio-001-03.jpg" 
-                      alt="Yamaha R15" 
+                      src={getBikeImage(0)}
+                      alt="Sport Bike" 
                       className="w-full h-32 object-cover"
                     />
                   </div>
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
-                      src="https://www.kawasaki.com/content/dam/kawasaki/products/motorcycles/2023/ninja-650/ninja-650-krt-edition/2023-Ninja-650-KRT-Edition-GN1A.jpg" 
-                      alt="Kawasaki Ninja" 
+                      src={getBikeImage(1)}
+                      alt="Cruiser Bike" 
                       className="w-full h-24 object-cover"
                     />
                   </div>
@@ -944,15 +1139,15 @@ export default function RentalSearch() {
                 <div className="space-y-4 mt-6">
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
-                      src="https://www.suzuki.com.au/-/media/project/suzuki-main-site/main/motorcycles/road/sport/gsx-r150/2022-gsx-r150-blue/2022gsx-r150blueaction1.jpg" 
-                      alt="Suzuki GSX-R" 
+                      src={getBikeImage(2)}
+                      alt="Touring Bike" 
                       className="w-full h-24 object-cover"
                     />
                   </div>
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
-                      src="https://www.honda.com/content/dam/site/honda/powersports/street/sport/cbr300r/2022/overview/22CBR300RRed1.jpg" 
-                      alt="Honda CBR" 
+                      src={getBikeImage(3)}
+                      alt="Adventure Bike" 
                       className="w-full h-32 object-cover"
                     />
                   </div>
@@ -962,8 +1157,6 @@ export default function RentalSearch() {
           </div>
         </div>
       </div>
-
-      {/* City Selection Modal */}
       {showCityModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: colors.white }}>
@@ -971,13 +1164,7 @@ export default function RentalSearch() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold" style={{ color: colors.dark }}>Select Your City</h3>
-                  <p className="text-sm mt-1" style={{ color: colors.text }}>Choose from our premium locations across Maharashtra</p>
-                  <input
-                    type="text"
-                    placeholder="Search or type city to select"
-                    className="w-full mt-3 px-4 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 text-sm"
-                    style={{ borderColor: colors.border, focusRingColor: colors.primary }}
-                  />
+                  <p className="text-sm mt-1" style={{ color: colors.text }}>Choose from our premium locations</p>
                 </div>
                 <button
                   onClick={() => setShowCityModal(false)}
@@ -990,34 +1177,80 @@ export default function RentalSearch() {
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {MAHARASHTRA_CITIES.map(city => (
-                  <button
-                    key={city.id}
-                    onClick={() => handleCitySelect(city.id)}
-                    className={`group relative overflow-hidden rounded-xl transition-all hover:scale-105 hover:shadow-lg ${
-                      selectedCity === city.id ? 'ring-3' : ''
-                    }`}
-                    style={{ ringColor: selectedCity === city.id ? colors.primary : 'transparent' }}
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" 
+                       style={{ borderColor: colors.primary }}></div>
+                  <span className="ml-3" style={{ color: colors.text }}>Loading cities...</span>
+                </div>
+              ) : error ? (
+                <div className="text-center py-12">
+                  <p className="mb-4" style={{ color: colors.danger }}>{error}</p>
+                  <button 
+                    onClick={() => {
+                      setError('');
+                      fetchActiveCities();
+                    }}
+                    className="px-4 py-2 rounded-lg hover:opacity-80 transition-colors"
+                    style={{ backgroundColor: colors.primary, color: colors.white }}
                   >
-                    <div className="aspect-[4/3] relative">
-                      <img 
-                        src={city.image} 
-                        alt={city.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black opacity-70 to-transparent"></div>
-                    </div>
-                    <div className="absolute bottom-3 left-3 text-white">
-                      <div className="text-lg font-bold">{city.name}</div>
-                      <div className="text-sm opacity-90">{city.stores.length} locations</div>
-                      <div className="text-xs mt-1 px-2 py-1 rounded-full inline-block font-medium" style={{ backgroundColor: colors.warning, color: colors.dark }}>
-                        {city.stores.reduce((acc, store) => acc + store.bikes, 0)} bikes
-                      </div>
-                    </div>
+                    Try Again
                   </button>
-                ))}
-              </div>
+                </div>
+              ) : cities.length === 0 ? (
+                <div className="text-center py-12">
+                  <p style={{ color: colors.textLight }}>No active cities available at the moment.</p>
+                  <button 
+                    onClick={fetchActiveCities}
+                    className="px-4 py-2 mt-4 rounded-lg hover:opacity-80 transition-colors"
+                    style={{ backgroundColor: colors.primary, color: colors.white }}
+                  >
+                    Refresh
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   {cities.map((city, index) => {
+    // ✅ Calculate stores for this specific city
+    const citySpecificStores = stores.filter(store => {
+      const storeCityId = store.cityId || store.city?.id;
+      return storeCityId === city.id;
+    });
+    
+    return (
+                     <button
+        key={city.id}
+        onClick={() => handleCitySelect(city.id)}
+        className={`group relative overflow-hidden rounded-xl transition-all hover:scale-105 hover:shadow-lg ${
+          selectedCity === city.id ? 'ring-3' : ''
+        }`}
+        style={{ ringColor: selectedCity === city.id ? colors.primary : 'transparent' }}
+      >
+        <div className="aspect-[4/3] relative">
+          <ImageWithFallback 
+            src={city.cityImage}
+            alt={city.cityName}
+            className="w-full h-full object-cover"
+            fallback={DEFAULT_IMAGES.city}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black opacity-70 to-transparent"></div>
+        </div>
+        <div className="absolute bottom-3 left-3 text-white">
+          <div className="text-lg font-bold">{city.cityName}</div>
+          <div className="text-sm opacity-90">
+            {/* ✅ Show actual store count for this city */}
+            {citySpecificStores.length} store{citySpecificStores.length !== 1 ? 's' : ''}
+          </div>
+          <div className="text-xs mt-1 px-2 py-1 rounded-full inline-block font-medium" 
+               style={{ backgroundColor: colors.warning, color: colors.dark }}>
+            {citySpecificStores.length > 0 ? 'Available for booking' : 'Coming soon'}
+          </div>
+        </div>
+      </button>
+                 );
+  })}
+</div>
+              )}
             </div>
           </div>
         </div>
