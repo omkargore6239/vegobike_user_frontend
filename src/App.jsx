@@ -10,6 +10,9 @@ import { BuySellProvider } from './context/BuySellContext';
 // Import API client to initialize interceptors
 import './utils/apiClient';
 
+// Import constants
+import { ROUTES, USER_ROLES, ERROR_MESSAGES } from './utils/constants';
+
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -49,6 +52,52 @@ import PostListing from './pages/buysell/PostListing';
 import ListingDetail from './pages/buysell/ListingDetail';
 import MyListings from './pages/buysell/MyListings';
 
+// 404 Not Found Component
+const NotFoundPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center max-w-md mx-auto p-6">
+      <div className="mb-8">
+        <div className="text-8xl mb-4">🚲</div>
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+        <p className="text-gray-600 mb-6">Oops! This page took a wrong turn.</p>
+      </div>
+      
+      <div className="bg-gray-100 p-4 rounded-lg mb-6 text-sm">
+        <p className="text-gray-700 mb-2">Debug Info:</p>
+        <p className="text-gray-600">Current URL: {window.location.pathname}</p>
+        <p className="text-gray-600">Search Params: {window.location.search}</p>
+      </div>
+      
+      <div className="space-y-2">
+        <a 
+          href={ROUTES.HOME}
+          className="block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+        >
+          🏠 Go to Home
+        </a>
+        <a 
+          href={ROUTES.RENTAL}
+          className="block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+        >
+          🚲 Go to Rentals
+        </a>
+        <a 
+          href={ROUTES.SERVICING}
+          className="block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          🔧 Go to Servicing
+        </a>
+        <a 
+          href={ROUTES.SPAREPARTS}
+          className="block px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+        >
+          🔩 Go to Spare Parts
+        </a>
+      </div>
+    </div>
+  </div>
+);
+
 function App() {
   return (
     <ErrorBoundary>
@@ -67,32 +116,32 @@ function App() {
                         {/* ================================ */}
                         
                         {/* Authentication Routes */}
-                        <Route path="/" element={<Home />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
+                        <Route path={ROUTES.HOME} element={<Home />} />
+                        <Route path={ROUTES.LOGIN} element={<Login />} />
+                        <Route path={ROUTES.REGISTER} element={<Register />} />
                         
                         {/* Browse/Search Routes (Public) */}
-                        <Route path="/search" element={<RentalSearch />} />
-                        <Route path="/rental" element={<RentalHome />} />
-                        <Route path="/bikes" element={<BikeList />} />
+                        <Route path={ROUTES.RENTAL_SEARCH} element={<RentalSearch />} />
+                        <Route path={ROUTES.RENTAL} element={<RentalHome />} />
+                        <Route path={ROUTES.RENTAL_BIKES} element={<BikeList />} />
                         
                         {/* Servicing Public Pages */}
-                        <Route path="/servicing" element={<ServicingHome />} />
-                        <Route path="/servicing/home" element={<HomePage />} />
-                        <Route path="/servicing/services" element={<Services />} />
-                        <Route path="/servicing/service-packages" element={<ServicePackagesPage />} />
+                        <Route path={ROUTES.SERVICING} element={<ServicingHome />} />
+                        <Route path={ROUTES.SERVICING_HOMEPAGE} element={<HomePage />} />
+                        <Route path={ROUTES.SERVICING_SERVICES} element={<Services />} />
+                        <Route path={ROUTES.SERVICING_PACKAGES} element={<ServicePackagesPage />} />
                         
                         {/* Spareparts Public Pages */}
-                        <Route path="/spareparts" element={<SparepartsHome />} />
-                        <Route path="/spareparts/part/:id" element={<PartDetails />} />
+                        <Route path={ROUTES.SPAREPARTS} element={<SparepartsHome />} />
+                        <Route path={`${ROUTES.SPAREPARTS_PART_DETAILS}/:id`} element={<PartDetails />} />
                         
                         {/* BuySell Public Pages */}
-                        <Route path="/buysell" element={<BuySellHome />} />
-                        <Route path="/buysell/listing/:id" element={<ListingDetail />} />
+                        <Route path={ROUTES.BUYSELL} element={<BuySellHome />} />
+                        <Route path={`${ROUTES.BUYSELL_LISTING}/:id`} element={<ListingDetail />} />
                         
                         {/* Static/Info Pages (Public) */}
-                        <Route path="/servicing/refund" element={<RefundPolicy />} />
-                        <Route path="/servicing/terms" element={<TermsAndConditions />} />
+                        <Route path={ROUTES.REFUND_POLICY} element={<RefundPolicy />} />
+                        <Route path={ROUTES.TERMS} element={<TermsAndConditions />} />
                         
                         {/* ================================== */}
                         {/* PROTECTED ROUTES (Auth Required)   */}
@@ -100,7 +149,7 @@ function App() {
                         
                         {/* Rental Protected Routes */}
                         <Route 
-                          path="/rental/booking/:id" 
+                          path={`${ROUTES.RENTAL_BOOKING}/:id`}
                           element={
                             <ProtectedRoute>
                               <Booking />
@@ -108,7 +157,7 @@ function App() {
                           } 
                         />
                         <Route 
-                          path="/rental/my-bookings" 
+                          path={ROUTES.RENTAL_MY_BOOKINGS}
                           element={
                             <ProtectedRoute>
                               <MyBookings />
@@ -118,7 +167,7 @@ function App() {
                         
                         {/* Servicing Protected Routes */}
                         <Route 
-                          path="/servicing/profile" 
+                          path={ROUTES.SERVICING_PROFILE}
                           element={
                             <ProtectedRoute>
                               <Profile />
@@ -126,7 +175,7 @@ function App() {
                           } 
                         />
                         <Route 
-                          path="/servicing/cart" 
+                          path={ROUTES.SERVICING_CART}
                           element={
                             <ProtectedRoute>
                               <Cart />
@@ -134,7 +183,7 @@ function App() {
                           } 
                         />
                         <Route 
-                          path="/servicing/checkout" 
+                          path={ROUTES.SERVICING_CHECKOUT}
                           element={
                             <ProtectedRoute>
                               <CheckoutPage />
@@ -144,7 +193,7 @@ function App() {
                         
                         {/* Spareparts Protected Routes */}
                         <Route 
-                          path="/spareparts/checkout" 
+                          path={ROUTES.SPAREPARTS_CHECKOUT}
                           element={
                             <ProtectedRoute>
                               <Checkout />
@@ -152,7 +201,7 @@ function App() {
                           } 
                         />
                         <Route 
-                          path="/spareparts/orders" 
+                          path={ROUTES.SPAREPARTS_ORDERS}
                           element={
                             <ProtectedRoute>
                               <Orders />
@@ -162,7 +211,7 @@ function App() {
                         
                         {/* BuySell Protected Routes */}
                         <Route 
-                          path="/buysell/post" 
+                          path={ROUTES.BUYSELL_POST}
                           element={
                             <ProtectedRoute>
                               <PostListing />
@@ -170,7 +219,7 @@ function App() {
                           } 
                         />
                         <Route 
-                          path="/buysell/my-listings" 
+                          path={ROUTES.BUYSELL_MY_LISTINGS}
                           element={
                             <ProtectedRoute>
                               <MyListings />
@@ -178,36 +227,34 @@ function App() {
                           } 
                         />
 
+                        {/* ========================================= */}
+                        {/* ROLE-BASED PROTECTED ROUTES (Optional)   */}
+                        {/* ========================================= */}
+                        
+                        {/* Admin Routes */}
+                        <Route 
+                          path={ROUTES.ADMIN_DASHBOARD}
+                          element={
+                            <ProtectedRoute requiredRole={USER_ROLES.ADMIN}>
+                              <AdminDashboard />
+                            </ProtectedRoute>
+                          } 
+                        />
+                        
+                        {/* Store Manager Routes */}
+                        <Route 
+                          path={ROUTES.STORE_DASHBOARD}
+                          element={
+                            <ProtectedRoute requiredRole={USER_ROLES.STORE_MANAGER}>
+                              <StoreDashboard />
+                            </ProtectedRoute>
+                          } 
+                        />
+
                         {/* ================================ */}
                         {/* 404 NOT FOUND ROUTE              */}
                         {/* ================================ */}
-                        <Route path="*" element={
-                          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                            <div className="text-center max-w-md mx-auto p-6">
-                              <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-                              <p className="text-gray-600 mb-6">Page not found</p>
-                              <div className="bg-gray-100 p-4 rounded-lg mb-6 text-sm">
-                                <p className="text-gray-700 mb-2">Debug Info:</p>
-                                <p className="text-gray-600">Current URL: {window.location.pathname}</p>
-                                <p className="text-gray-600">Search Params: {window.location.search}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <a 
-                                  href="/" 
-                                  className="block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                >
-                                  Go to Home
-                                </a>
-                                <a 
-                                  href="/rental" 
-                                  className="block px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                                >
-                                  Go to Rentals
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        } />
+                        <Route path="*" element={<NotFoundPage />} />
                       </Routes>
                     </main>
                     <Footer />
