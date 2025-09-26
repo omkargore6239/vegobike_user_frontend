@@ -2,15 +2,20 @@
 // STORAGE KEYS
 // =================================
 export const STORAGE_KEYS = {
-  USER: 'vegobike_user',
-  TOKEN: 'vegobike_token',
-  CART: 'vegobike_cart',
-  RENTAL_CART: 'vegobike_rental_cart',
-  SERVICING_CART: 'vegobike_servicing_cart',
-  SPAREPARTS_CART: 'vegobike_spareparts_cart',
-  THEME: 'vegobike_theme',
-  LANGUAGE: 'vegobike_language',
-  LAST_VISIT: 'vegobike_last_visit',
+  // ... existing keys
+  USER: 'user',
+  TOKEN: 'auth_token',
+  PENDING_BOOKING: 'pending_booking',
+  BOOKING_STEP: 'booking_step',
+  RENTAL_SEARCH: 'rental_search_data',
+  SELECTED_BIKE: 'selected_bike'
+};
+export const BOOKING_STEPS = {
+  SEARCH: 'search',
+  BIKES: 'bikes', 
+  CHECKOUT: 'checkout',
+  PAYMENT: 'payment',
+  CONFIRMATION: 'confirmation'
 };
 
 // Legacy support (keep for backward compatibility)

@@ -1,12 +1,24 @@
-import React, { useState, useEffect } from 'react';
+// pages/rental/BikeDetails.jsx - Complete updated version with login integration
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { ROUTES, BOOKING_STEPS } from '../../utils/constants';
 
-// Color palette
+// Updated Color Palette to match BikeList
 const colors = {
-  primary: '#405791',
-  secondary: '#ffffff',
-  accent: '#f8fafc',
+  primary: '#1A1E82',
+  secondary: '#6B7280',
+  success: '#10B981',
+  danger: '#EF4444',
+  warning: '#F59E0B',
+  orange: '#FF6B35',
+  dark: '#1F2937',
+  light: '#F9FAFB',
+  white: '#FFFFFF',
+  border: '#E5E7EB',
+  text: '#374151',
+  textLight: '#6B7280',
+  cardShadow: 'rgba(0, 0, 0, 0.1)',
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
@@ -18,16 +30,7 @@ const colors = {
     700: '#374151',
     800: '#1f2937',
     900: '#111827',
-  },
-  success: '#10b981',
-  error: '#ef4444',
-  warning: '#f59e0b',
-  light: '#f9fafb',
-  white: '#ffffff',
-  dark: '#1f2937',
-  border: '#e5e7eb',
-  text: '#374151',
-  textLight: '#6b7280',
+  }
 };
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8081';
@@ -36,7 +39,16 @@ const BikeDetails = () => {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { 
+    isAuthenticated, 
+    user, 
+    authCheckComplete, 
+    loading: authLoading, 
+    storeBookingIntent,
+    pendingBooking,
+    bookingStep,
+    clearBookingIntent
+  } = useAuth();
   
   // States
   const [selectedImage, setSelectedImage] = useState(0);
@@ -46,17 +58,11 @@ const BikeDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    search: '',
-    bikeType: '',
-    priceRange: '',
-    sortBy: 'name'
-  });
-  
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [showAuthStatus, setShowAuthStatus] = useState(false);
+
   // Search parameters from URL
   const searchParams = new URLSearchParams(location.search);
-  const isListView = !id; // If no ID in URL, show list view
 
   // Debug logging
   useEffect(() => {
@@ -64,8 +70,8 @@ const BikeDetails = () => {
     console.log('📍 Current Path:', location.pathname);
     console.log('🔗 Search Params:', location.search);
     console.log('🆔 Bike ID:', id);
-    console.log('📊 Search Params Object:', Object.fromEntries(searchParams));
-  }, [location, id, searchParams]);
+    console.log('🔐 Auth Status:', { isAuthenticated, authCheckComplete });
+  }, [location, id, isAuthenticated, authCheckComplete]);
 
   // API helper with enhanced error handling
   const makeApiCall = async (url, options = {}) => {
@@ -119,96 +125,23 @@ const BikeDetails = () => {
     return `${BASE_URL}/uploads/${path}`;
   };
 
-  // Enhanced fetch all bikes with proper backend mapping
-  const fetchAllBikes = async () => {
+  // Enhanced fetch single bike by ID
+  const fetchSingleBike = useCallback(async (bikeId) => {
     try {
       setLoading(true);
       setError('');
       
-      let apiUrl = `${BASE_URL}/api/bikes/all`;
-      
-      // If we have search parameters, use the available bikes endpoint
-      if (searchParams.toString()) {
-        const startDate = searchParams.get('startDate');
-        const endDate = searchParams.get('endDate');
-        const city = searchParams.get('city');
-        const addressType = searchParams.get('addressType') || 
-                           (searchParams.get('pickupMode') === 'store' ? 'STORE' : 'DELIVERY');
-        
-        // Build parameters for the available bikes API
-        const params = new URLSearchParams({
-          page: '0',
-          size: '50',
-          sort: 'bikeName,asc'
-        });
-        
-        if (startDate) params.append('startDate', startDate);
-        if (endDate) params.append('endDate', endDate);
-        if (addressType) params.append('addressType', addressType);
-        if (city) params.append('search', city);
-        
-        apiUrl = `${BASE_URL}/api/bikes/available?${params.toString()}`;
-        console.log('🔍 Using filtered bikes API:', apiUrl);
-      } else {
-        console.log('📋 Using all bikes API:', apiUrl);
-      }
-
-      const response = await makeApiCall(apiUrl);
-      
-      // Handle different response formats from your backend
-      let bikesData;
-      if (response && response.success !== false) {
-        // Handle paginated response for available bikes
-        if (response.content) {
-          bikesData = response.content; // Spring Boot Page response
-          console.log(`📄 Paginated response: ${response.totalElements} total bikes, ${bikesData.length} in current page`);
-        } else if (Array.isArray(response)) {
-          bikesData = response; // Direct array response
-          console.log(`📋 Direct array response: ${bikesData.length} bikes`);
-        } else if (response.data) {
-          bikesData = Array.isArray(response.data) ? response.data : [response.data];
-          console.log(`📦 Data wrapper response: ${bikesData.length} bikes`);
-        } else {
-          bikesData = [];
-          console.warn('⚠️ Unexpected response format:', response);
-        }
-      } else {
-        throw new Error(response?.message || 'Failed to fetch bikes');
-      }
-      
-      const validBikes = Array.isArray(bikesData) ? bikesData : [];
-      setBikes(validBikes);
-      
-      console.log(`✅ Successfully loaded ${validBikes.length} bikes`);
-      
-      // If we have a specific bike ID, find and set it
-      if (id) {
-        const bike = validBikes.find(b => b.id === parseInt(id));
-        if (!bike) {
-          console.log(`🔍 Bike ${id} not found in list, fetching individually...`);
-          await fetchSingleBike(id);
-        } else {
-          setSelectedBike(bike);
-          console.log('✅ Found bike in list:', bike.bikeName || bike.name);
-        }
-      }
-      
-    } catch (err) {
-      console.error('❌ Error fetching bikes:', err);
-      setError(`Failed to load bikes: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch single bike by ID
-  const fetchSingleBike = async (bikeId) => {
-    try {
       const response = await makeApiCall(`${BASE_URL}/api/bikes/${bikeId}`);
       
       if (response && response.success !== false) {
         const bikeData = response.data || response;
         setSelectedBike(bikeData);
+        
+        // Set default package if available
+        if (bikeData.packages && bikeData.packages.length > 0) {
+          setSelectedPackage(bikeData.packages[0]);
+        }
+        
         console.log('✅ Single bike fetched:', bikeData.bikeName || bikeData.name);
       } else {
         throw new Error(response?.message || 'Bike not found');
@@ -217,114 +150,91 @@ const BikeDetails = () => {
     } catch (err) {
       console.error('❌ Error fetching single bike:', err);
       setError(`Bike not found: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Fetch packages with proper error handling
-  const fetchPackages = async () => {
-    try {
-      const response = await makeApiCall(`${BASE_URL}/api/packages`);
-      
-      if (response && response.success !== false) {
-        const packagesData = response.data || response || [];
-        setPackages(Array.isArray(packagesData) ? packagesData : []);
-        console.log('📦 Packages loaded:', packagesData.length);
-      }
-    } catch (err) {
-      console.log('ℹ️ Packages not available:', err.message);
-      // Don't set error for packages as they might not be implemented yet
-    }
-  };
+  }, []);
 
   // Initial data fetch
   useEffect(() => {
-    console.log('🚀 Starting data fetch...');
-    fetchAllBikes();
-    fetchPackages();
-  }, [id, location.search]);
-
-  // Enhanced filter bikes
-  const filteredBikes = bikes.filter(bike => {
-    const matchesSearch = !filters.search || [
-      bike.bikeName,
-      bike.name, 
-      bike.brand,
-      bike.bikeType,
-      bike.type,
-      bike.model,
-      bike.description
-    ].some(field => 
-      field?.toLowerCase().includes(filters.search.toLowerCase())
-    );
-    
-    const matchesType = !filters.bikeType || 
-      bike.bikeType === filters.bikeType || 
-      bike.type === filters.bikeType;
-    
-    const matchesPrice = !filters.priceRange || (() => {
-      const price = bike.pricePerDay || bike.price || 0;
-      switch (filters.priceRange) {
-        case 'low': return price < 500;
-        case 'medium': return price >= 500 && price < 1000;
-        case 'high': return price >= 1000;
-        default: return true;
-      }
-    })();
-    
-    return matchesSearch && matchesType && matchesPrice;
-  }).sort((a, b) => {
-    const priceA = a.pricePerDay || a.price || 0;
-    const priceB = b.pricePerDay || b.price || 0;
-    const nameA = a.bikeName || a.name || '';
-    const nameB = b.bikeName || b.name || '';
-    
-    switch (filters.sortBy) {
-      case 'price-low': return priceA - priceB;
-      case 'price-high': return priceB - priceA;
-      case 'name': return nameA.localeCompare(nameB);
-      default: return 0;
+    if (id) {
+      console.log('🚀 Starting single bike fetch for ID:', id);
+      fetchSingleBike(id);
     }
-  });
+  }, [id, fetchSingleBike]);
 
-  // Enhanced booking handler
-  const handleBookNow = async (bikeId, bikeName = 'this bike') => {
+  // Show authentication status briefly when user logs in
+  useEffect(() => {
+    if (isAuthenticated && authCheckComplete) {
+      setShowAuthStatus(true);
+      const timer = setTimeout(() => {
+        setShowAuthStatus(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, authCheckComplete]);
+
+  // Enhanced booking handler with login integration
+  const handleBookNow = useCallback(async () => {
+    if (!selectedBike) return;
+    
+    console.log('Attempting to book bike:', selectedBike.id, 'Authentication status:', isAuthenticated);
+    
+    if (!authCheckComplete) {
+      console.log('Authentication check not complete yet');
+      return;
+    }
+
     setBookingLoading(true);
     
     try {
+      const bookingData = {
+        // Search parameters from URL
+        startDate: searchParams.get('startDate'),
+        endDate: searchParams.get('endDate'),
+        city: searchParams.get('city'),
+        pickupMode: searchParams.get('pickupMode'),
+        store: searchParams.get('store') || '',
+        deliveryAddress: searchParams.get('deliveryAddress') || '',
+        pickupTime: searchParams.get('pickupTime'),
+        dropoffTime: searchParams.get('dropoffTime'),
+        
+        // Bike and package details
+        bikeId: selectedBike.id.toString(),
+        packageId: selectedPackage?.id || selectedBike.packages?.[0]?.id || '',
+        price: selectedPackage?.price || selectedBike.packages?.[0]?.price || 0,
+        deposit: selectedPackage?.deposit || selectedBike.packages?.[0]?.deposit || 0,
+        
+        // Additional bike info
+        bikeName: selectedBike.bikeName || selectedBike.name,
+        registrationNumber: selectedBike.registrationNumber,
+        storeName: selectedBike.storeName,
+        packageName: selectedPackage?.daysDisplay || selectedBike.packages?.[0]?.daysDisplay || '',
+        
+        // Metadata
+        timestamp: new Date().toISOString(),
+        source: 'bike-details'
+      };
+
       if (!isAuthenticated) {
-        setLoginModalOpen(true);
+        console.log('User not authenticated, storing booking intent and redirecting to login');
+        
+        // Store booking intent for after login
+        storeBookingIntent(bookingData, BOOKING_STEPS.CHECKOUT);
+        
+        // Create return URL for bike details page
+        const bikeDetailsUrl = `/rental/bike/${selectedBike.id}${location.search}`;
+        const returnUrl = encodeURIComponent(bikeDetailsUrl);
+        
+        navigate(`${ROUTES.LOGIN}?returnUrl=${returnUrl}`);
         return;
       }
 
-      if (!user?.id) {
-        setError('User authentication error. Please login again.');
-        navigate('/login', { 
-          state: { 
-            from: { pathname: `/rental/booking/${bikeId}` },
-            message: 'Please login to continue with your booking'
-          } 
-        });
-        return;
-      }
-
-      // Navigate to booking page with state including search parameters
-      navigate(`/rental/booking/${bikeId}`, {
-        state: {
-          bikeId,
-          bikeName,
-          returnUrl: location.pathname + location.search,
-          searchParams: {
-            city: searchParams.get('city'),
-            store: searchParams.get('store'),
-            pickupMode: searchParams.get('pickupMode'),
-            deliveryAddress: searchParams.get('deliveryAddress'),
-            startDate: searchParams.get('startDate'),
-            endDate: searchParams.get('endDate'),
-            pickupTime: searchParams.get('pickupTime'),
-            dropoffTime: searchParams.get('dropoffTime')
-          }
-        }
-      });
+      // User is authenticated, proceed to booking
+      console.log('User authenticated, proceeding to booking page');
+      const bookingParams = new URLSearchParams(bookingData).toString();
+      navigate(`${ROUTES.RENTAL_BOOKING}/${selectedBike.id}?${bookingParams}`);
       
     } catch (err) {
       console.error('Booking error:', err);
@@ -332,23 +242,105 @@ const BikeDetails = () => {
     } finally {
       setBookingLoading(false);
     }
+  }, [selectedBike, selectedPackage, searchParams, isAuthenticated, authCheckComplete, location, storeBookingIntent, navigate]);
+
+  // Enhanced package selection
+  const handlePackageSelect = useCallback((packageData) => {
+    setSelectedPackage(packageData);
+  }, []);
+
+  // Format price
+  const formatPrice = useCallback((price) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+    }).format(price || 0);
+  }, []);
+
+  // Clear booking intent handler
+  const handleClearBookingIntent = useCallback(() => {
+    clearBookingIntent();
+  }, [clearBookingIntent]);
+
+  // Booking Intent Banner Component
+  const BookingIntentBanner = ({ pendingBooking, bookingStep, onClearIntent }) => {
+    if (!pendingBooking) return null;
+
+    const getBannerContent = () => {
+      switch (bookingStep) {
+        case BOOKING_STEPS.CHECKOUT:
+          return {
+            icon: '🎯',
+            title: 'Booking in Progress',
+            message: `Ready to continue booking ${pendingBooking.bikeName || 'selected bike'}`,
+            bgColor: 'bg-blue-50',
+            borderColor: 'border-blue-200',
+            textColor: 'text-blue-800'
+          };
+        case 'bike-details':
+          return {
+            icon: '📍',
+            title: 'Bike Details View',
+            message: `Continue viewing ${pendingBooking.bikeName || 'bike'} details`,
+            bgColor: 'bg-indigo-50',
+            borderColor: 'border-indigo-200',
+            textColor: 'text-indigo-800'
+          };
+        default:
+          return {
+            icon: '📋',
+            title: 'Booking Saved',
+            message: 'Continue your booking process',
+            bgColor: 'bg-indigo-50',
+            borderColor: 'border-indigo-200',
+            textColor: 'text-indigo-800'
+          };
+      }
+    };
+
+    const { icon, title, message, bgColor, borderColor, textColor } = getBannerContent();
+
+    return (
+      <div className={`${bgColor} border ${borderColor} rounded-lg p-4 mb-6`}>
+        <div className="flex items-start justify-between">
+          <div className="flex items-start">
+            <div className="text-2xl mr-3">{icon}</div>
+            <div>
+              <h3 className={`font-semibold ${textColor} mb-1`}>{title}</h3>
+              <p className={`text-sm ${textColor} opacity-90`}>{message}</p>
+              {pendingBooking.bikeName && (
+                <div className="mt-2 inline-flex items-center bg-white bg-opacity-50 px-2 py-1 rounded text-xs font-medium">
+                  <span className={textColor}>Selected: {pendingBooking.bikeName}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClearIntent}
+            className={`${textColor} hover:opacity-70 transition-opacity`}
+            title="Clear saved booking"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
   };
 
-  // Login modal handler
-  const handleLoginRedirect = () => {
-    setLoginModalOpen(false);
-    navigate('/login', { 
-      state: { 
-        from: { pathname: location.pathname },
-        message: 'Please login to book a bike'
-      } 
-    });
-  };
-
-  // Get bike types from fetched bikes for filter
-  const availableBikeTypes = [...new Set(
-    bikes.map(bike => bike.bikeType || bike.type).filter(Boolean)
-  )];
+  // Show loading screen while auth is being checked
+  if (authLoading && !authCheckComplete) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.light }}>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {
@@ -358,13 +350,43 @@ const BikeDetails = () => {
           <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" 
                style={{ borderColor: colors.primary }}></div>
           <h2 className="text-xl font-semibold" style={{ color: colors.dark }}>
-            Loading bikes...
+            Loading bike details...
           </h2>
           <p className="text-sm mt-2" style={{ color: colors.textLight }}>
-            {searchParams.get('city') ? `Searching in ${searchParams.get('city')}` : 'Please wait while we fetch the latest bikes'}
+            Please wait while we fetch the bike information
           </p>
-          <div className="mt-4 text-xs text-gray-500">
-            <p>API URL: {`${BASE_URL}/api/bikes/${searchParams.toString() ? 'available' : 'all'}`}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.light }}>
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="mb-6">
+            <svg className="w-16 h-16 mx-auto text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Bike Not Found</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => fetchSingleBike(id)}
+              className="w-full px-6 py-3 font-medium text-white rounded-lg hover:opacity-90"
+              style={{ backgroundColor: colors.primary }}
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => navigate('/rental/bikes')}
+              className="w-full px-6 py-3 font-medium rounded-lg border-2 hover:opacity-80"
+              style={{ borderColor: colors.primary, color: colors.primary }}
+            >
+              Back to Bikes
+            </button>
           </div>
         </div>
       </div>
@@ -372,11 +394,11 @@ const BikeDetails = () => {
   }
 
   // Individual bike details view
-  if (selectedBike && id) {
+  if (selectedBike) {
     const images = [
-      getImageUrl(selectedBike.bikeImage) || 'https://via.placeholder.com/400x300?text=Bike+Image',
-      getImageUrl(selectedBike.bikeImage) || 'https://via.placeholder.com/400x300?text=Bike+Image+2',
-      getImageUrl(selectedBike.bikeImage) || 'https://via.placeholder.com/400x300?text=Bike+Image+3'
+      getImageUrl(selectedBike.bikeImage) || getImageUrl(selectedBike.mainImageUrl) || 'https://via.placeholder.com/400x300?text=Bike+Image',
+      getImageUrl(selectedBike.bikeImage) || getImageUrl(selectedBike.mainImageUrl) || 'https://via.placeholder.com/400x300?text=Bike+Image+2',
+      getImageUrl(selectedBike.bikeImage) || getImageUrl(selectedBike.mainImageUrl) || 'https://via.placeholder.com/400x300?text=Bike+Image+3'
     ];
 
     const features = selectedBike.features || [
@@ -393,19 +415,29 @@ const BikeDetails = () => {
     return (
       <div className="min-h-screen" style={{ backgroundColor: colors.light }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Debug info in development */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-              <p><strong>Debug Info:</strong></p>
-              <p>Path: {location.pathname}</p>
-              <p>Search: {location.search}</p>
-              <p>ID: {id || 'none'}</p>
-              <p>Bikes loaded: {bikes.length}</p>
-              <p>Selected bike: {selectedBike?.bikeName || 'none'}</p>
+          
+          {/* Booking Intent Banner */}
+          <BookingIntentBanner 
+            pendingBooking={pendingBooking} 
+            bookingStep={bookingStep}
+            onClearIntent={handleClearBookingIntent}
+          />
+
+          {/* Authentication Status */}
+          {showAuthStatus && isAuthenticated && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-green-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-medium text-green-800">
+                  Welcome back, {user?.name || 'User'}! You can now book this bike.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Enhanced Breadcrumb with search context */}
+          {/* Enhanced Breadcrumb */}
           <nav className="flex mb-8" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-4">
               <li>
@@ -416,7 +448,7 @@ const BikeDetails = () => {
               <li><span style={{ color: colors.gray[500] }}>/</span></li>
               <li>
                 <Link 
-                  to={`/rental/bike${location.search}`} 
+                  to={`/rental/bikes${location.search}`} 
                   style={{ color: colors.gray[500] }} 
                   className="hover:opacity-70 text-sm"
                 >
@@ -447,7 +479,6 @@ const BikeDetails = () => {
                 <div className="absolute top-4 right-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded-lg text-xs">
                   {selectedImage + 1} / {images.length}
                 </div>
-                {/* Availability badge */}
                 <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-medium text-white"
                      style={{ backgroundColor: colors.success }}>
                   ✅ Available Now
@@ -502,7 +533,7 @@ const BikeDetails = () => {
                     {selectedBike.brand || 'Premium'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-sm font-medium" 
-                        style={{ backgroundColor: colors.accent, color: colors.text }}>
+                        style={{ backgroundColor: colors.gray[100], color: colors.text }}>
                     {selectedBike.bikeType || selectedBike.type || 'Bike'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-sm font-medium" 
@@ -517,101 +548,111 @@ const BikeDetails = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="text-3xl font-bold" style={{ color: colors.primary }}>
-                    ₹{selectedBike.pricePerDay || selectedBike.price}
-                    <span className="text-lg font-normal" style={{ color: colors.gray[500] }}>/day</span>
-                  </div>
-                  {selectedBike.originalPrice && selectedBike.originalPrice > (selectedBike.pricePerDay || selectedBike.price) && (
-                    <div className="text-lg line-through" style={{ color: colors.textLight }}>
-                      ₹{selectedBike.originalPrice}
-                    </div>
-                  )}
-                </div>
-
-                {/* Search context info */}
-                {searchParams.get('startDate') && (
-                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: colors.accent }}>
-                    <p className="text-sm" style={{ color: colors.text }}>
-                      📅 Available for: {searchParams.get('startDate')} to {searchParams.get('endDate')}
-                    </p>
-                    {searchParams.get('city') && (
-                      <p className="text-xs mt-1" style={{ color: colors.textLight }}>
-                        📍 Location: {searchParams.get('city')}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Features */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4" style={{ color: colors.dark }}>🔧 Features & Amenities</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" style={{ color: colors.success }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm" style={{ color: colors.text }}>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Specifications */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4" style={{ color: colors.dark }}>📋 Specifications</h3>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Engine Capacity', value: selectedBike.engineCapacity },
-                    { label: 'Fuel Type', value: selectedBike.fuelType },
-                    { label: 'Transmission', value: selectedBike.transmission },
-                    { label: 'Mileage', value: selectedBike.mileage ? `${selectedBike.mileage} km/l` : null },
-                    { label: 'Max Speed', value: selectedBike.maxSpeed ? `${selectedBike.maxSpeed} km/h` : null },
-                    { label: 'Seating Capacity', value: selectedBike.seatingCapacity || '2 persons' }
-                  ].filter(spec => spec.value).map((spec, index) => (
-                    <div key={index} className="flex justify-between items-center py-2 border-b" style={{ borderColor: colors.border }}>
-                      <span style={{ color: colors.gray[500] }}>{spec.label}:</span>
-                      <span className="font-medium">{spec.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-2" style={{ color: colors.dark }}>📍 Pickup Location</h3>
-                <p style={{ color: colors.gray[500] }}>
-                  {selectedBike.location || selectedBike.address || searchParams.get('city') || 'Multiple locations available'}
-                </p>
-                {selectedBike.pickupInstructions && (
-                  <p className="text-sm mt-1" style={{ color: colors.textLight }}>
-                    {selectedBike.pickupInstructions}
+                {/* Vehicle Info */}
+                <div className="mb-4 space-y-2">
+                  <p className="text-sm" style={{ color: colors.textLight }}>
+                    <span className="font-medium">Registration:</span> {selectedBike.registrationNumber}
                   </p>
+                  <p className="text-sm" style={{ color: colors.textLight }}>
+                    <span className="font-medium">Store:</span> {selectedBike.storeName}
+                  </p>
+                </div>
+
+                {/* Package Selection */}
+                {selectedBike.packages && selectedBike.packages.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-base font-semibold mb-3" style={{ color: colors.dark }}>
+                      Choose Package
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedBike.packages.map((pkg, index) => {
+                        const isSelected = selectedPackage?.id === pkg.id;
+                        
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => handlePackageSelect(pkg)}
+                            className={`p-4 rounded-lg border-2 text-center transition-all ${
+                              isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="text-sm font-medium" style={{ color: colors.dark }}>
+                              {pkg.daysDisplay}
+                            </div>
+                            <div className="text-xl font-bold" style={{ color: colors.primary }}>
+                              {formatPrice(pkg.price)}
+                            </div>
+                            {pkg.hourlyRate && pkg.hourlyChargeAmount && (
+                              <div className="text-xs" style={{ color: colors.textLight }}>
+                                ₹{pkg.hourlyChargeAmount}/hr
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
+
+                {/* Security Deposit */}
+                {selectedPackage && selectedPackage.deposit && (
+                  <div className="mb-4 text-center">
+                    <p className="text-sm" style={{ color: colors.danger }}>
+                      *Security deposit: {formatPrice(selectedPackage.deposit)} (refundable)
+                    </p>
+                  </div>
+                )}
+
+                {/* Features */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.dark }}>Features</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {features.slice(0, 8).map((feature, index) => (
+                      <div key={index} className="flex items-center text-sm" style={{ color: colors.textLight }}>
+                        <span className="text-green-500 mr-2">✓</span>
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Booking Section */}
               <div className="border-t pt-6" style={{ borderColor: colors.border }}>
                 <button
-                  onClick={() => handleBookNow(selectedBike.id, selectedBike.bikeName || selectedBike.name)}
-                  disabled={bookingLoading}
-                  className="w-full py-3 rounded-lg font-semibold transition-all duration-200 text-white hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: colors.primary }}
+                  onClick={handleBookNow}
+                  disabled={bookingLoading || (!selectedBike.packages || selectedBike.packages.length === 0)}
+                  className="w-full py-4 rounded-lg font-semibold text-white text-lg transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    background: !isAuthenticated 
+                      ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                      : colors.primary
+                  }}
                 >
                   {bookingLoading ? (
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       Processing...
                     </div>
-                  ) : isAuthenticated ? (
-                    <>🚀 Book Now - ₹{selectedBike.pricePerDay || selectedBike.price}/day</>
+                  ) : !isAuthenticated ? (
+                    <div className="flex items-center justify-center">
+                      <svg className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-2 0V5H5v10h10v-1a1 1 0 112 0v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm7.707 3.293a1 1 0 010 1.414L9.414 10H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Login to Book
+                    </div>
                   ) : (
-                    <>🔐 Login to Book</>
+                    <>🚀 Book Now - {selectedPackage ? formatPrice(selectedPackage.price) : formatPrice(selectedBike.pricePerDay || selectedBike.price)}/day</>
                   )}
                 </button>
                 
+                {!isAuthenticated && (
+                  <p className="text-xs text-center mt-3 text-gray-500">
+                    • Quick login with phone number<br/>
+                    • Secure booking process
+                  </p>
+                )}
+
                 <div className="flex items-center justify-center gap-4 mt-4 text-xs" style={{ color: colors.textLight }}>
                   <span>✅ Free cancellation up to 24 hours</span>
                   <span>•</span>
@@ -623,7 +664,7 @@ const BikeDetails = () => {
             </div>
           </div>
 
-          {/* Additional Info */}
+          {/* Additional Info Sections */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
@@ -668,449 +709,24 @@ const BikeDetails = () => {
             ))}
           </div>
         </div>
-
-        {/* Login Modal */}
-        {loginModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ backgroundColor: colors.white }}>
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
-                  <svg className="w-8 h-8" style={{ color: colors.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-2" style={{ color: colors.dark }}>Login Required</h3>
-                <p className="mb-6" style={{ color: colors.gray[500] }}>
-                  Please login to your account to book this bike and enjoy our premium services.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setLoginModalOpen(false)}
-                    className="flex-1 py-2 px-4 rounded-lg border transition-colors"
-                    style={{ borderColor: colors.border, color: colors.gray[500] }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleLoginRedirect}
-                    className="flex-1 py-2 px-4 rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: colors.primary }}
-                  >
-                    Login Now
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Enhanced Bikes listing view
+  // Return to bikes list if no bike is selected
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.light }}>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Debug info in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-            <p><strong>Debug Info:</strong></p>
-            <p>Path: {location.pathname}</p>
-            <p>Search: {location.search}</p>
-            <p>ID: {id || 'none'}</p>
-            <p>Bikes loaded: {bikes.length}</p>
-            <p>Selected bike: {selectedBike?.bikeName || 'none'}</p>
-          </div>
-        )}
-
-        {/* Enhanced Header with search context */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-2" style={{ color: colors.dark }}>
-                🏍️ Available Bikes
-              </h1>
-              <p style={{ color: colors.gray[500] }}>
-                {filteredBikes.length} bike{filteredBikes.length !== 1 ? 's' : ''} available
-                {searchParams.get('city') && ` in ${searchParams.get('city')}`}
-                {searchParams.get('startDate') && ` for ${searchParams.get('startDate')} to ${searchParams.get('endDate')}`}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link 
-                to="/rental"
-                className="px-4 py-2 rounded-lg transition-colors text-white hover:shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                🔍 New Search
-              </Link>
-              <button
-                onClick={() => {
-                  setError('');
-                  fetchAllBikes();
-                }}
-                className="px-4 py-2 rounded-lg transition-colors border hover:shadow-lg"
-                style={{ borderColor: colors.border, color: colors.gray[500] }}
-              >
-                🔄 Refresh
-              </button>
-            </div>
-          </div>
-
-          {/* Enhanced Search context display */}
-          {(searchParams.get('city') || searchParams.get('startDate')) && (
-            <div className="p-4 rounded-lg mb-6" style={{ backgroundColor: colors.accent }}>
-              <h3 className="font-semibold text-sm mb-2" style={{ color: colors.dark }}>Search Criteria:</h3>
-              <div className="flex flex-wrap gap-2">
-                {searchParams.get('city') && (
-                  <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: colors.primary, color: colors.white }}>
-                    📍 {searchParams.get('city')}
-                  </span>
-                )}
-                {searchParams.get('startDate') && (
-                  <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: colors.success, color: colors.white }}>
-                    📅 {searchParams.get('startDate')} to {searchParams.get('endDate')}
-                  </span>
-                )}
-                {searchParams.get('pickupMode') && (
-                  <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: colors.warning, color: colors.dark }}>
-                    🚚 {searchParams.get('pickupMode') === 'store' ? 'Store Pickup' : 'Delivery'}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Enhanced Filters */}
-          <div className="rounded-xl p-6 mb-6 shadow-lg" style={{ backgroundColor: colors.white }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: colors.dark }}>🎯 Filter & Sort</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-                  🔍 Search Bikes
-                </label>
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => setFilters({...filters, search: e.target.value})}
-                  placeholder="Search by name, brand, type..."
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
-                  style={{ 
-                    borderColor: colors.border,
-                    focusRingColor: colors.primary 
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-                  🏍️ Bike Type
-                </label>
-                <select
-                  value={filters.bikeType}
-                  onChange={(e) => setFilters({...filters, bikeType: e.target.value})}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
-                  style={{ borderColor: colors.border }}
-                >
-                  <option value="">All Types</option>
-                  {availableBikeTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-                                <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-                  💰 Price Range
-                </label>
-                <select
-                  value={filters.priceRange}
-                  onChange={(e) => setFilters({...filters, priceRange: e.target.value})}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
-                  style={{ borderColor: colors.border }}
-                >
-                  <option value="">All Prices</option>
-                  <option value="low">Under ₹500</option>
-                  <option value="medium">₹500 - ₹1000</option>
-                  <option value="high">Above ₹1000</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-                  📊 Sort By
-                </label>
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
-                  style={{ borderColor: colors.border }}
-                >
-                  <option value="name">Name (A-Z)</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Enhanced Error State */}
-        {error && (
-          <div className="mb-6 p-4 rounded-lg border shadow-lg" 
-               style={{ backgroundColor: `${colors.error}15`, borderColor: colors.error }}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" style={{ color: colors.error }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p style={{ color: colors.error }}>{error}</p>
-            </div>
-            <button
-              onClick={() => {
-                setError('');
-                fetchAllBikes();
-              }}
-              className="text-sm underline mt-2 hover:opacity-80"
-              style={{ color: colors.error }}
-            >
-              🔄 Try again
-            </button>
-          </div>
-        )}
-
-        {/* Enhanced Bikes Grid */}
-        {filteredBikes.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.border }}>
-              <svg className="w-8 h-8" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.291-1.007-5.824-2.562" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2" style={{ color: colors.dark }}>No bikes found</h3>
-            <p className="mb-4" style={{ color: colors.gray[500] }}>
-              No bikes match your current criteria. Try adjusting your filters or search terms.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setFilters({ search: '', bikeType: '', priceRange: '', sortBy: 'name' })}
-                className="px-6 py-3 rounded-lg text-white transition-colors hover:shadow-lg"
-                style={{ backgroundColor: colors.primary }}
-              >
-                🗑️ Clear Filters
-              </button>
-              <Link
-                to="/rental"
-                className="px-6 py-3 rounded-lg transition-colors border hover:shadow-lg"
-                style={{ borderColor: colors.border, color: colors.gray[500] }}
-              >
-                🔍 New Search
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBikes.map((bike) => {
-              const bikeName = bike.bikeName || bike.name || 'Unknown Bike';
-              const bikePrice = bike.pricePerDay || bike.price || 0;
-              const bikeType = bike.bikeType || bike.type || 'Bike';
-              
-              return (
-                <div key={bike.id} className="rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105"
-                     style={{ backgroundColor: colors.white }}>
-                  <div className="relative">
-                    <img
-                      src={getImageUrl(bike.bikeImage) || 'https://via.placeholder.com/300x200?text=Bike+Image'}
-                      alt={bikeName}
-                      className="w-full h-48 object-cover"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/300x200?text=Bike+Image';
-                      }}
-                    />
-                    <div className="absolute top-3 right-3 flex flex-col gap-2">
-                      <div className="px-2 py-1 rounded-full text-xs font-medium text-white"
-                           style={{ backgroundColor: colors.success }}>
-                        ✅ Available
-                      </div>
-                      {bike.featured && (
-                        <div className="px-2 py-1 rounded-full text-xs font-medium text-white"
-                             style={{ backgroundColor: colors.warning }}>
-                          ⭐ Featured
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-xl font-bold mb-1" style={{ color: colors.dark }}>
-                          {bikeName}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4" style={{ color: colors.warning }} fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                          <span className="text-sm" style={{ color: colors.gray[500] }}>4.5</span>
-                          <span className="text-xs" style={{ color: colors.textLight }}>(120)</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center flex-wrap gap-2 mb-4">
-                      <span className="px-2 py-1 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: colors.primary }}>
-                        {bike.brand || 'Premium'}
-                      </span>
-                      <span className="px-2 py-1 rounded text-xs font-medium"
-                            style={{ backgroundColor: colors.accent, color: colors.text }}>
-                        {bikeType}
-                      </span>
-                      {bike.fuelType && (
-                        <span className="px-2 py-1 rounded text-xs font-medium"
-                              style={{ backgroundColor: colors.border, color: colors.text }}>
-                          {bike.fuelType}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <p className="text-sm mb-4 line-clamp-2" style={{ color: colors.gray[500] }}>
-                      {bike.description || `Experience the thrill of riding this premium ${bikeType.toLowerCase()} with excellent performance and comfort for your journey.`}
-                    </p>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-2xl font-bold" style={{ color: colors.primary }}>
-                          ₹{bikePrice}
-                        </span>
-                        <span className="text-sm" style={{ color: colors.gray[500] }}>/day</span>
-                        {bike.originalPrice && bike.originalPrice > bikePrice && (
-                          <div className="text-sm line-through" style={{ color: colors.textLight }}>
-                            ₹{bike.originalPrice}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Link
-                          to={`/rental/bike/${bike.id}${location.search}`}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md"
-                          style={{ backgroundColor: colors.accent, color: colors.primary }}
-                        >
-                          👁️ View
-                        </Link>
-                        <button
-                          onClick={() => handleBookNow(bike.id, bikeName)}
-                          disabled={bookingLoading}
-                          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:shadow-md disabled:opacity-50"
-                          style={{ backgroundColor: colors.primary }}
-                        >
-                          {bookingLoading ? '⏳' : '🚀'} Book
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Enhanced Packages Section */}
-        {packages.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6" style={{ color: colors.dark }}>
-              🎁 Special Packages & Deals
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {packages.map((pkg, index) => (
-                <div key={pkg.id || index} className="rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow" 
-                     style={{ backgroundColor: colors.white }}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
-                      <span style={{ color: colors.primary }}>🎁</span>
-                    </div>
-                    <h3 className="text-lg font-bold" style={{ color: colors.dark }}>
-                      {pkg.name || pkg.title}
-                    </h3>
-                  </div>
-                  <p className="text-sm mb-4" style={{ color: colors.gray[500] }}>
-                    {pkg.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-bold" style={{ color: colors.primary }}>
-                      ₹{pkg.price}
-                      {pkg.originalPrice && (
-                        <span className="text-sm line-through ml-2" style={{ color: colors.textLight }}>
-                          ₹{pkg.originalPrice}
-                        </span>
-                      )}
-                    </div>
-                    <button className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:shadow-md"
-                            style={{ backgroundColor: colors.primary }}>
-                      Select Package
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Login Modal for list view */}
-        {loginModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ backgroundColor: colors.white }}>
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
-                  <svg className="w-8 h-8" style={{ color: colors.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-2" style={{ color: colors.dark }}>Login Required</h3>
-                <p className="mb-6" style={{ color: colors.gray[500] }}>
-                  Please login to your account to book bikes and access our premium services.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setLoginModalOpen(false)}
-                    className="flex-1 py-2 px-4 rounded-lg border transition-colors"
-                    style={{ borderColor: colors.border, color: colors.gray[500] }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleLoginRedirect}
-                    className="flex-1 py-2 px-4 rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: colors.primary }}
-                  >
-                    Login Now
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Customer Support Section */}
-        <div className="mt-12 text-center">
-          <div className="rounded-xl p-8" style={{ backgroundColor: colors.white }}>
-            <h3 className="text-2xl font-bold mb-4" style={{ color: colors.dark }}>
-              Need Help Choosing?
-            </h3>
-            <p className="mb-6" style={{ color: colors.gray[500] }}>
-              Our bike experts are here to help you find the perfect ride for your journey.
-            </p>
-            <div className="flex justify-center gap-4">
-              <button className="px-6 py-3 rounded-lg text-white transition-colors hover:shadow-lg"
-                      style={{ backgroundColor: colors.primary }}>
-                📞 Call Us: +91 98765 43210
-              </button>
-              <button className="px-6 py-3 rounded-lg border transition-colors hover:shadow-lg"
-                      style={{ borderColor: colors.border, color: colors.text }}>
-                💬 Chat Support
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.light }}>
+      <div className="text-center">
+        <h2 className="text-xl font-semibold mb-4" style={{ color: colors.dark }}>
+          No bike selected
+        </h2>
+        <button
+          onClick={() => navigate('/rental/bikes')}
+          className="px-6 py-3 font-medium text-white rounded-lg hover:opacity-90"
+          style={{ backgroundColor: colors.primary }}
+        >
+          Browse Bikes
+        </button>
       </div>
     </div>
   );

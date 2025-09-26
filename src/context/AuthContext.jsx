@@ -1,14 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiClient, apiClientMultipart } from '../utils/apiClient';
-import { 
-  STORAGE_KEYS, 
-  API_ENDPOINTS, 
-  ERROR_MESSAGES, 
-  SUCCESS_MESSAGES,
-  VALIDATION,
-  USER_ROLES,
-  APP_CONFIG
-} from '../utils/constants';
+// context/AuthContext.jsx - Fixed version to prevent infinite loops
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { apiClient } from '../utils/apiClient';
 
 const AuthContext = createContext();
 
@@ -21,466 +13,272 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
+  
+  // Booking intent state
+  const [pendingBooking, setPendingBooking] = useState(null);
+  const [bookingStep, setBookingStep] = useState(null);
+  
+  // Use ref to prevent infinite loops
+  const initializationRef = useRef(false);
+  const tokenRef = useRef(null);
 
-  // Clear error after specified time
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), APP_CONFIG.ERROR_TIMEOUT || 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-  // Initialize user from localStorage and verify with backend
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
-        const savedToken = localStorage.getItem(STORAGE_KEYS.TOKEN);
-        
-        if (savedUser && savedToken) {
-          const parsedUser = JSON.parse(savedUser);
-          
-          // Verify token with backend
-          try {
-            const response = await apiClient.get(API_ENDPOINTS.AUTH.VERIFY_TOKEN);
-            if (response.data?.valid) {
-              setUser(parsedUser);
-              setIsAuthenticated(true);
-            } else {
-              // Token is invalid, clear storage
-              clearAuthStorage();
-            }
-          } catch (tokenError) {
-            // Token verification failed, clear storage
-            clearAuthStorage();
-            console.warn('Token verification failed:', tokenError);
-          }
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        clearAuthStorage();
-        setError(ERROR_MESSAGES.SESSION_EXPIRED);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-  }, []);
-
-  // Helper function to clear auth storage
-  const clearAuthStorage = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEYS.USER);
-    localStorage.removeItem(STORAGE_KEYS.TOKEN);
-    setUser(null);
-    setIsAuthenticated(false);
-  }, []);
-
-  // Helper function to store auth data
-  const storeAuthData = useCallback((token, userData) => {
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-    setUser(userData);
-    setIsAuthenticated(true);
-  }, []);
-
-  // Send OTP for login
-  const sendLoginOTP = useCallback(async (phoneNumber) => {
-    if (!phoneNumber || phoneNumber.trim().length < VALIDATION.PHONE_MIN_LENGTH) {
-      const errorMsg = 'Valid phone number is required';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.AUTH.SEND_LOGIN_OTP, {
-        phoneNumber: phoneNumber.trim()
-      });
-
-      return { 
-        success: true, 
-        message: response.data.message || SUCCESS_MESSAGES.OTP_SENT
-      };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || ERROR_MESSAGES.NETWORK_ERROR;
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Verify OTP and login
-  const verifyLoginOTP = useCallback(async (phoneNumber, otp) => {
-    if (!phoneNumber || !otp || otp.length !== VALIDATION.OTP_LENGTH) {
-      const errorMsg = `Phone number and ${VALIDATION.OTP_LENGTH}-digit OTP are required`;
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_LOGIN_OTP, {
-        phoneNumber: phoneNumber.trim(),
-        otp: otp.trim()
-      });
-
-      if (response.data.token) {
-        const { token, user: userData } = response.data;
-        storeAuthData(token, userData);
-        return { success: true, user: userData };
-      }
-      
-      throw new Error(ERROR_MESSAGES.VALIDATION_ERROR);
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed. Please check your OTP.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, [storeAuthData]);
-
-  // Combined login function (legacy support)
-  const login = useCallback(async (credentials) => {
-    // If it's phone-based login, redirect to new OTP flow
-    if (credentials.phoneNumber) {
-      const otpResult = await sendLoginOTP(credentials.phoneNumber);
-      if (otpResult.success) {
-        return { 
-          success: true, 
-          requiresOTP: true, 
-          message: SUCCESS_MESSAGES.OTP_SENT
-        };
-      }
-      return otpResult;
-    }
-
-    // Legacy email/password login (for backward compatibility)
-    if (!credentials?.email || !credentials?.password) {
-      const errorMsg = 'Email and password are required';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Try admin login endpoint first
-      let response;
-      try {
-        response = await apiClient.post(API_ENDPOINTS.AUTH.ADMIN_LOGIN, {
-          email: credentials.email.toLowerCase().trim(),
-          password: credentials.password
-        });
-      } catch (adminError) {
-        // If admin login fails with 403, try store manager login
-        if (adminError.response?.status === 403) {
-          response = await apiClient.post(API_ENDPOINTS.AUTH.STORE_MANAGER_LOGIN, {
-            email: credentials.email.toLowerCase().trim(),
-            password: credentials.password
-          });
-        } else {
-          throw adminError;
-        }
-      }
-
-      if (response.data.token) {
-        const { token, user: userData } = response.data;
-        storeAuthData(token, userData);
-        return { success: true, user: userData };
-      }
-      
-      throw new Error(ERROR_MESSAGES.VALIDATION_ERROR);
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed. Please check your credentials.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, [sendLoginOTP, storeAuthData]);
-
-  // Send OTP for registration
-  const sendRegistrationOTP = useCallback(async (registrationData) => {
-    // Validation
-    const requiredFields = ['phoneNumber', 'email', 'name'];
-    const missingFields = requiredFields.filter(field => !registrationData?.[field]);
+  // Initialize auth state from localStorage (only once)
+  const initializeAuth = useCallback(() => {
+    if (initializationRef.current) return;
     
-    if (missingFields.length > 0) {
-      const errorMsg = `Required fields missing: ${missingFields.join(', ')}`;
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    // Additional validation
-    if (!VALIDATION.EMAIL_REGEX.test(registrationData.email)) {
-      const errorMsg = 'Invalid email format';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    if (registrationData.phoneNumber.length < VALIDATION.PHONE_MIN_LENGTH) {
-      const errorMsg = 'Invalid phone number';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    if (registrationData.password.length < VALIDATION.PASSWORD_MIN_LENGTH) {
-      const errorMsg = `Password must be at least ${VALIDATION.PASSWORD_MIN_LENGTH} characters`;
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Create FormData for multipart request
-      const formData = new FormData();
-      
-      const payload = {
-        name: registrationData.name.trim(),
-        phoneNumber: registrationData.phoneNumber.trim(),
-        alternateNumber: registrationData.alternateNumber?.trim() || '',
-        email: registrationData.email.toLowerCase().trim(),
-        address: registrationData.address?.trim() || '',
-        accountNumber: registrationData.accountNumber?.trim() || '',
-        ifsc: registrationData.ifsc?.trim() || '',
-        upiId: registrationData.upiId?.trim() || '',
-        password: registrationData.password,
-        roleId: USER_ROLES.USER, // User role
-        storeId: 0, // Not a store manager
-        profileImageName: registrationData.profileImage?.name || ''
-      };
-      
-      formData.append('data', JSON.stringify(payload));
-      
-      if (registrationData.profileImage) {
-        // Validate file size
-        if (registrationData.profileImage.size > APP_CONFIG.MAX_FILE_SIZE) {
-          const errorMsg = ERROR_MESSAGES.FILE_TOO_LARGE;
-          setError(errorMsg);
-          return { success: false, error: errorMsg };
-        }
-        
-        // Validate file type
-        if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(registrationData.profileImage.type)) {
-          const errorMsg = ERROR_MESSAGES.INVALID_FILE_TYPE;
-          setError(errorMsg);
-          return { success: false, error: errorMsg };
-        }
-        
-        formData.append('profileImage', registrationData.profileImage);
-      }
-
-      const response = await apiClientMultipart.post(API_ENDPOINTS.AUTH.SEND_REGISTRATION_OTP, formData);
-
-      return { 
-        success: true, 
-        message: response.data.message || SUCCESS_MESSAGES.REGISTRATION_SUCCESS
-      };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Verify registration OTP
-  const verifyRegistrationOTP = useCallback(async (phoneNumber, otp) => {
-    if (!phoneNumber || !otp || otp.length !== VALIDATION.OTP_LENGTH) {
-      const errorMsg = `Phone number and ${VALIDATION.OTP_LENGTH}-digit OTP are required`;
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_REGISTRATION_OTP, {
-        phoneNumber: phoneNumber.trim(),
-        otp: otp.trim()
-      });
-
-      if (response.data.token) {
-        const { token, user: userData } = response.data;
-        storeAuthData(token, userData);
-        return { success: true, user: userData };
-      }
-      
-      return { success: true, message: SUCCESS_MESSAGES.REGISTRATION_SUCCESS };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration verification failed.';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, [storeAuthData]);
-
-  // Combined register function
-  const register = useCallback(async (userData) => {
-    const result = await sendRegistrationOTP(userData);
-    if (result.success) {
-      return { 
-        success: true, 
-        requiresOTP: true, 
-        message: SUCCESS_MESSAGES.OTP_SENT
-      };
-    }
-    return result;
-  }, [sendRegistrationOTP]);
-
-  // Logout function
-  const logout = useCallback(async () => {
-    try {
-      // Optional: Call backend logout endpoint
-      try {
-        await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
-      } catch (logoutError) {
-        // Ignore logout endpoint errors
-        console.warn('Logout endpoint error:', logoutError);
-      }
-      
-      clearAuthStorage();
-      setError(null);
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Error during logout:', error);
-      return { success: false, error: 'Logout failed' };
-    }
-  }, [clearAuthStorage]);
-
-  // Update user profile
-  const updateProfile = useCallback(async (profileData) => {
-    if (!isAuthenticated) {
-      const errorMsg = ERROR_MESSAGES.UNAUTHORIZED;
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await apiClient.put(API_ENDPOINTS.USER.UPDATE_PROFILE, profileData);
-      
-      const updatedUser = { ...user, ...response.data.user };
-      setUser(updatedUser);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-      
-      return { success: true, user: updatedUser, message: SUCCESS_MESSAGES.PROFILE_UPDATED };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Profile update failed';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, [user, isAuthenticated]);
-
-  // Clear error manually
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  // Check authentication status
-  const checkAuthStatus = useCallback(async () => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-    const userData = localStorage.getItem(STORAGE_KEYS.USER);
+    console.log('🚀 AUTH_INIT - Initializing authentication state (one time)');
+    initializationRef.current = true;
     
-    if (token && userData) {
-      try {
-        const response = await apiClient.get(API_ENDPOINTS.AUTH.VERIFY_TOKEN);
-        if (response.data?.valid) {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('user');
+      
+      console.log('🔍 AUTH_INIT - Token exists:', !!token);
+      console.log('👤 AUTH_INIT - User data exists:', !!userData);
+      
+      if (token && userData) {
+        try {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           setIsAuthenticated(true);
-          return true;
+          tokenRef.current = token;
+          console.log('✅ AUTH_INIT - User authenticated from localStorage:', parsedUser.name || parsedUser.phoneNumber);
+        } catch (parseError) {
+          console.error('❌ AUTH_INIT - Error parsing user data:', parseError);
+          // Clear invalid data
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          setIsAuthenticated(false);
+          setUser(null);
+          tokenRef.current = null;
         }
-      } catch (error) {
-        console.warn('Auth status check failed:', error);
+      } else {
+        console.log('ℹ️ AUTH_INIT - No valid authentication data found');
+        setIsAuthenticated(false);
+        setUser(null);
+        tokenRef.current = null;
       }
-    }
-    
-    // Clear invalid session
-    clearAuthStorage();
-    return false;
-  }, [clearAuthStorage]);
-
-  // Refresh token (if your backend supports it)
-  const refreshToken = useCallback(async () => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.AUTH.REFRESH_TOKEN);
-      if (response.data.token) {
-        localStorage.setItem(STORAGE_KEYS.TOKEN, response.data.token);
-        return { success: true, token: response.data.token };
-      }
-      throw new Error('No token in refresh response');
     } catch (error) {
-      clearAuthStorage();
-      return { success: false, error: 'Token refresh failed' };
+      console.error('💥 AUTH_INIT - Error initializing auth:', error);
+      setIsAuthenticated(false);
+      setUser(null);
+      tokenRef.current = null;
+    } finally {
+      setLoading(false);
+      setAuthCheckComplete(true);
+      console.log('🎯 AUTH_INIT - Authentication check complete');
     }
-  }, [clearAuthStorage]);
+  }, []); // Empty dependency array - only runs once
 
-  // Get user role information
-  const getUserRole = useCallback(() => {
-    if (!user?.roleId) return null;
+  // Check authentication on mount (only once)
+  useEffect(() => {
+    console.log('🔄 AUTH_CONTEXT - Component mounting');
+    initializeAuth();
+  }, [initializeAuth]);
+
+  // Login function with proper error handling
+  const login = useCallback(async (phoneNumber, otp) => {
+    console.log('🔑 AUTH_LOGIN - Attempting login for:', phoneNumber);
     
-    return {
-      id: user.roleId,
-      name: Object.keys(USER_ROLES).find(key => USER_ROLES[key] === user.roleId),
-      isAdmin: user.roleId === USER_ROLES.ADMIN,
-      isStoreManager: user.roleId === USER_ROLES.STORE_MANAGER,
-      isUser: user.roleId === USER_ROLES.USER,
-    };
-  }, [user]);
+    try {
+      setLoading(true);
+      
+      const response = await apiClient.post('/api/auth/verify-login-otp', {
+        phoneNumber: phoneNumber.trim(),
+        otp: otp
+      });
+      
+      console.log('✅ AUTH_LOGIN - Login successful:', response.data);
+      
+      const { token, message } = response.data;
+      
+      if (token) {
+        // Store authentication data
+        localStorage.setItem('auth_token', token);
+        tokenRef.current = token;
+        
+        // Create user object
+        const userData = {
+          phoneNumber: phoneNumber.trim(),
+          token: token,
+          name: 'User',
+          loginTime: new Date().toISOString()
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Update state
+        setUser(userData);
+        setIsAuthenticated(true);
+        
+        console.log('🎉 AUTH_LOGIN - Authentication state updated');
+        return { success: true, message: message || 'Login successful' };
+      } else {
+        throw new Error('No token received from server');
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_LOGIN - Login failed:', error);
+      
+      // Clear any existing auth data on failed login
+      logout();
+      
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Login failed. Please try again.'
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Logout function
+  const logout = useCallback(async () => {
+    console.log('👋 AUTH_LOGOUT - Logging out user');
+    
+    try {
+      // Try to call logout endpoint if it exists
+      if (tokenRef.current) {
+        try {
+          await apiClient.post('/api/auth/logout', {}, {
+            headers: {
+              'Authorization': `Bearer ${tokenRef.current}`
+            }
+          });
+          console.log('✅ AUTH_LOGOUT - Server logout successful');
+        } catch (logoutError) {
+          console.log('⚠️ AUTH_LOGOUT - Server logout failed (continuing with local logout):', logoutError.message);
+        }
+      }
+    } catch (error) {
+      console.log('💥 AUTH_LOGOUT - Error during server logout:', error.message);
+    } finally {
+      // Always clear local state regardless of server response
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      setIsAuthenticated(false);
+      setUser(null);
+      setPendingBooking(null);
+      setBookingStep(null);
+      tokenRef.current = null;
+      console.log('✨ AUTH_LOGOUT - Local logout complete');
+    }
+  }, []);
+
+  // Check if token exists (simple check without server verification)
+  const hasValidToken = useCallback(() => {
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user');
+    return !!(token && userData);
+  }, []);
+
+  // Store booking intent with debouncing
+  const storeBookingIntent = useCallback((bookingData, step) => {
+    console.log('📋 AUTH_BOOKING - Storing booking intent:', { bookingData, step });
+    setPendingBooking(prevBooking => {
+      // Only update if different
+      if (JSON.stringify(prevBooking) !== JSON.stringify(bookingData)) {
+        return bookingData;
+      }
+      return prevBooking;
+    });
+    
+    setBookingStep(prevStep => {
+      if (prevStep !== step) {
+        return step;
+      }
+      return prevStep;
+    });
+    
+    // Store in localStorage for persistence
+    localStorage.setItem('pending_booking', JSON.stringify(bookingData));
+    localStorage.setItem('booking_step', step);
+  }, []);
+
+  // Clear booking intent
+  const clearBookingIntent = useCallback(() => {
+    console.log('🗑️ AUTH_BOOKING - Clearing booking intent');
+    setPendingBooking(null);
+    setBookingStep(null);
+    
+    localStorage.removeItem('pending_booking');
+    localStorage.removeItem('booking_step');
+  }, []);
+
+  // Restore booking intent from localStorage (only once)
+  const restoreBookingIntent = useCallback(() => {
+    try {
+      const savedBooking = localStorage.getItem('pending_booking');
+      const savedStep = localStorage.getItem('booking_step');
+      
+      if (savedBooking && savedStep) {
+        const bookingData = JSON.parse(savedBooking);
+        console.log('📥 AUTH_BOOKING - Restored booking intent from localStorage');
+        setPendingBooking(bookingData);
+        setBookingStep(savedStep);
+      }
+    } catch (error) {
+      console.error('💥 AUTH_BOOKING - Error restoring booking intent:', error);
+      // Clear invalid data
+      localStorage.removeItem('pending_booking');
+      localStorage.removeItem('booking_step');
+    }
+  }, []);
+
+  // Initialize booking intent on mount (only once)
+  useEffect(() => {
+    console.log('📋 AUTH_BOOKING - Restoring booking intent on mount');
+    restoreBookingIntent();
+  }, []); // Empty dependency array
+
+  // Refresh auth (simplified version) - prevents loops
+  const refreshAuth = useCallback(() => {
+    console.log('🔄 AUTH_REFRESH - Refreshing authentication state');
+    
+    // Only refresh if not already initialized
+    if (!initializationRef.current) {
+      initializeAuth();
+    } else {
+      // Quick check without re-initialization
+      const token = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('user');
+      
+      if (token && userData && !isAuthenticated) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+          tokenRef.current = token;
+        } catch (error) {
+          console.error('❌ AUTH_REFRESH - Error parsing user data:', error);
+          logout();
+        }
+      }
+    }
+  }, [isAuthenticated, logout]);
 
   const value = {
-    // State
+    // Auth state
+    isAuthenticated,
     user,
     loading,
-    error,
-    isAuthenticated,
+    authCheckComplete,
     
-    // OTP-based functions
-    sendLoginOTP,
-    verifyLoginOTP,
-    sendRegistrationOTP,
-    verifyRegistrationOTP,
-    
-    // Legacy functions (for backward compatibility)
+    // Auth methods
     login,
-    register,
-    
-    // Utility functions
     logout,
-    updateProfile,
-    clearError,
-    checkAuthStatus,
-    refreshToken,
-    getUserRole,
+    refreshAuth,
+    hasValidToken,
     
-    // Helper functions
-    clearAuthStorage,
+    // Booking intent
+    pendingBooking,
+    bookingStep,
+    storeBookingIntent,
+    clearBookingIntent
   };
 
   return (
@@ -490,5 +288,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export { AuthContext };
 export default AuthProvider;

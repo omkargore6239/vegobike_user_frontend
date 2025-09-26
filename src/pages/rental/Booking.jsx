@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// pages/Booking.jsx - Fixed version with proper authentication handling
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRental } from '../../context/RentalContext';
 import { useAuth } from '../../context/AuthContext';
+import { ROUTES, BOOKING_STEPS } from '../../utils/constants';
 
 const Booking = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { availableBikes, addBooking } = useRental();
-  const { user } = useAuth();
+  const { 
+    isAuthenticated, 
+    authCheckComplete, 
+    user, 
+    storeBookingIntent 
+  } = useAuth();
 
-  const bike = availableBikes.find(b => b.id === parseInt(id));
+  // Find bike with memoization to prevent recalculation
+  const bike = useMemo(() => {
+    return availableBikes?.find(b => b.id === parseInt(id));
+  }, [availableBikes, id]);
 
+  // State management
   const [bookingData, setBookingData] = useState({
     startDate: '',
     endDate: '',
@@ -23,65 +35,166 @@ const Booking = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [authCheckDone, setAuthCheckDone] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleDateChange = (field, value) => {
-    const newData = { ...bookingData, [field]: value };
-    
-    if (newData.startDate && newData.endDate) {
-      const start = new Date(newData.startDate);
-      const end = new Date(newData.endDate);
-      const timeDiff = end.getTime() - start.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+  // Authentication check effect - runs once when auth is complete
+  useEffect(() => {
+    if (authCheckComplete && !authCheckDone) {
+      console.log('🔐 BOOKING - Auth check complete, authenticated:', isAuthenticated);
       
-      newData.totalDays = daysDiff > 0 ? daysDiff : 0;
-      newData.totalAmount = newData.totalDays * bike.price;
+      if (!isAuthenticated) {
+        console.log('🚫 BOOKING - User not authenticated, storing booking intent and redirecting to login');
+        
+        // Store booking intent before redirecting
+        if (bike) {
+          const bookingIntent = {
+            bikeId: bike.id,
+            bikeName: bike.name,
+            bikeImage: bike.image,
+            bikePrice: bike.price,
+            returnUrl: location.pathname + location.search
+          };
+          
+          storeBookingIntent(bookingIntent, BOOKING_STEPS.CHECKOUT);
+        }
+        
+        // Redirect to login with return URL
+        const returnUrl = encodeURIComponent(location.pathname + location.search);
+        navigate(`${ROUTES.LOGIN}?returnUrl=${returnUrl}`, { replace: true });
+        return;
+      }
+      
+      setAuthCheckDone(true);
     }
-    
-    setBookingData(newData);
-  };
+  }, [authCheckComplete, isAuthenticated, authCheckDone, bike, location, navigate, storeBookingIntent]);
 
-  const handleSubmit = async (e) => {
+  // Date change handler with better calculation
+  const handleDateChange = useCallback((field, value) => {
+    setBookingData(prevData => {
+      const newData = { ...prevData, [field]: value };
+      
+      if (newData.startDate && newData.endDate && bike) {
+        const start = new Date(newData.startDate);
+        const end = new Date(newData.endDate);
+        const timeDiff = end.getTime() - start.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+        
+        newData.totalDays = daysDiff > 0 ? daysDiff : 0;
+        newData.totalAmount = newData.totalDays * bike.price;
+      }
+      
+      return newData;
+    });
+  }, [bike]);
+
+  // Form submission handler
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
+    
+    if (!isAuthenticated) {
+      setError('Please login to continue booking');
+      return;
+    }
+
+    if (!user) {
+      setError('User information not available');
+      return;
+    }
+
     setLoading(true);
+    setError('');
 
     try {
+      console.log('📋 BOOKING - Submitting booking:', bookingData);
+      
       const booking = {
         bikeId: bike.id,
         bikeName: bike.name,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
+        bikeImage: bike.image,
+        userId: user.id || user.phoneNumber, // Use phoneNumber as fallback ID
+        userName: user.name || 'User',
+        userEmail: user.email || '',
+        userPhone: user.phoneNumber,
         ...bookingData,
+        bookingDate: new Date().toISOString(),
+        status: 'pending'
       };
 
+      console.log('📤 BOOKING - Adding booking to context:', booking);
       await addBooking(booking);
+      
+      console.log('✅ BOOKING - Booking successful, navigating to my-bookings');
       navigate('/rental/my-bookings');
     } catch (error) {
-      console.error('Booking failed:', error);
+      console.error('❌ BOOKING - Booking failed:', error);
+      setError(error.message || 'Booking failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user, bike, bookingData, addBooking, navigate]);
 
+  // Show loading while checking authentication
+  if (!authCheckComplete || !authCheckDone) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if bike not found
   if (!bike) {
-    return <div>Bike not found</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Bike Not Found</h1>
+          <p className="text-gray-600 mb-6">The bike you're looking for doesn't exist.</p>
+          <button
+            onClick={() => navigate('/rental/bikes')}
+            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            View All Bikes
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Book Your Bike</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Book Your Bike</h1>
+          <button
+            onClick={() => navigate(-1)}
+            className="text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            ← Back
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Booking Details</h2>
+              
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Date Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date
+                      Start Date *
                     </label>
                     <input
                       type="date"
@@ -89,13 +202,13 @@ const Booking = () => {
                       value={bookingData.startDate}
                       onChange={(e) => handleDateChange('startDate', e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date
+                      End Date *
                     </label>
                     <input
                       type="date"
@@ -103,7 +216,7 @@ const Booking = () => {
                       value={bookingData.endDate}
                       onChange={(e) => handleDateChange('endDate', e.target.value)}
                       min={bookingData.startDate || new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -112,27 +225,27 @@ const Booking = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Time
+                      Start Time *
                     </label>
                     <input
                       type="time"
                       required
                       value={bookingData.startTime}
-                      onChange={(e) => setBookingData({...bookingData, startTime: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      onChange={(e) => setBookingData(prev => ({...prev, startTime: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Time
+                      End Time *
                     </label>
                     <input
                       type="time"
                       required
                       value={bookingData.endTime}
-                      onChange={(e) => setBookingData({...bookingData, endTime: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      onChange={(e) => setBookingData(prev => ({...prev, endTime: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -141,39 +254,39 @@ const Booking = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pickup Location
+                      Pickup Location *
                     </label>
                     <input
                       type="text"
                       required
                       placeholder="Enter pickup address"
                       value={bookingData.pickupLocation}
-                      onChange={(e) => setBookingData({...bookingData, pickupLocation: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      onChange={(e) => setBookingData(prev => ({...prev, pickupLocation: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Drop Location
+                      Drop Location *
                     </label>
                     <input
                       type="text"
                       required
                       placeholder="Enter drop address"
                       value={bookingData.dropLocation}
-                      onChange={(e) => setBookingData({...bookingData, dropLocation: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary focus:border-primary"
+                      onChange={(e) => setBookingData(prev => ({...prev, dropLocation: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading || !bookingData.totalDays}
-                  className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  disabled={loading || !bookingData.totalDays || bookingData.totalDays <= 0}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Processing...' : `Confirm Booking - ₹${bookingData.totalAmount}`}
+                  {loading ? 'Processing...' : `Confirm Booking - ₹${bookingData.totalAmount + 2000}`}
                 </button>
               </form>
             </div>
@@ -187,11 +300,12 @@ const Booking = () => {
               {/* Bike Info */}
               <div className="flex items-center mb-4">
                 <img
-                  src={bike.image}
+                  src={bike.image || 'https://via.placeholder.com/64x64/10B981/FFFFFF?text=Bike'}
                   alt={bike.name}
                   className="w-16 h-16 rounded-lg object-cover mr-4"
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/64x64?text=Bike';
+                    console.log('📷 BOOKING - Image load failed, using fallback');
+                    e.target.src = 'https://via.placeholder.com/64x64/10B981/FFFFFF?text=Bike';
                   }}
                 />
                 <div>
@@ -214,13 +328,18 @@ const Booking = () => {
                     </div>
 
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Rental amount</span>
+                      <span className="font-medium">₹{bookingData.totalAmount}</span>
+                    </div>
+
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Security deposit</span>
                       <span className="font-medium">₹2,000</span>
                     </div>
 
                     <div className="border-t pt-3 flex justify-between font-semibold text-lg">
                       <span>Total Amount</span>
-                      <span className="text-primary">₹{bookingData.totalAmount + 2000}</span>
+                      <span className="text-indigo-600">₹{bookingData.totalAmount + 2000}</span>
                     </div>
                   </>
                 )}
