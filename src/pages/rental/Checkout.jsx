@@ -1,7 +1,7 @@
-// src/pages/rental/Checkout.jsx - Updated to integrate with BikeList
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { bookingService } from '../../services/bookingService';
 import { ROUTES } from '../../utils/constants';
 
 export default function RentalCheckout() {
@@ -149,6 +149,85 @@ export default function RentalCheckout() {
     showNotification('Coupon removed', 'success');
   };
 
+  // Format booking data for API call - Updated to match BookingRequestDto exactly
+  const prepareBookingRequest = () => {
+    const startDateTime = new Date(`${bookingData.startDate}T${bookingData.pickupTime || '10:00'}`);
+    const endDateTime = new Date(`${bookingData.endDate}T${bookingData.dropoffTime || '19:00'}`);
+    
+    // Calculate hours between dates
+    const diffInHours = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
+    
+    // Prepare data to match your BookingRequestDto exactly
+    const requestData = {
+      // Core required fields (matching your DTO exactly)
+      id: 0, // Will be auto-generated
+      bookingId: null, // Will be auto-generated as VEGO###
+      customerId: 33, // Default customer ID from your DB example
+      vehicleId: parseInt(bookingData.bikeId) || 24, // Default from your DB
+      
+      // Date fields - both timestamp and date versions
+      startDate: startDateTime, // Date object for TIMESTAMP field
+      endDate: endDateTime, // Date object for TIMESTAMP field
+      startDate1: startDateTime, // Date object for DATE field
+      endDate1: endDateTime, // Date object for DATE field
+      
+      // Amount fields (matching your DTO field names)
+      charges: Number(totals.subtotal) || 1000.0,
+      additionalCharges: 0.0,
+      additionalChargesDetails: null,
+      advanceAmount: Number(totals.deposit) || 1000.0,
+      finalAmount: Number(totals.total) || 1050.0, // This is the key field
+      gst: Number(totals.gst) || 50.0,
+      totalHours: diffInHours || 33.0,
+      
+      // Status and payment fields
+      bookingStatus: 1, // Confirmed
+      paymentStatus: paymentMethod === 'online' ? 'PAID' : 'PENDING',
+      paymentType: paymentMethod === 'online' ? 2 : 1,
+      
+      // Address and location fields
+      addressType: bookingData.pickupMode === 'delivery' ? 'Delivery' : 'Self Pickup',
+      address: bookingData.deliveryAddress || bookingData.storeName || bookingData.city || 'Pune - Nashik Highway, Chakan, Maharashtra, India',
+      pickupLocationId: 1,
+      dropLocationId: 1,
+      
+      // Timestamps (will be set by backend)
+      createdAt: null,
+      updatedAt: null,
+      
+      // Additional fields from your DTO
+      additionalHours: 0.0,
+      couponAmount: Number(totals.couponDiscount) || 0.0,
+      couponCode: couponCode || null,
+      couponId: 0,
+      deliveryCharges: 0.0,
+      deliveryType: bookingData.pickupMode === 'delivery' ? 'Home Delivery' : null,
+      km: 0.0,
+      lateEndDate: null,
+      lateFeeCharges: 0,
+      merchantTransactionId: null,
+      totalCharges: Number(totals.total) || 1050.0,
+      transactionId: null,
+      
+      // UI display fields (from your DTO)
+      statusName: 'Confirmed',
+      customerName: user?.name || 'Customer',
+      vehicleRegistrationNumber: bookingData.registrationNumber || 'N/A'
+    };
+    
+    console.log('📋 CHECKOUT - Prepared booking request:', requestData);
+    console.log('💰 CHECKOUT - Amount validation:', {
+      subtotal: totals.subtotal,
+      gst: totals.gst,
+      total: totals.total,
+      finalAmount: requestData.finalAmount,
+      charges: requestData.charges,
+      totalCharges: requestData.totalCharges
+    });
+    
+    return requestData;
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     
@@ -165,35 +244,60 @@ export default function RentalCheckout() {
     setIsLoading(true);
 
     try {
-      // Simulate payment processing
-      console.log('💳 CHECKOUT - Processing payment:', {
-        bookingData,
-        totals,
-        paymentMethod,
-        couponCode: couponCode || null,
-        user: user?.phoneNumber
-      });
+      console.log('💳 CHECKOUT - Processing payment and creating booking...');
+      
+      // Prepare booking request data
+      const bookingRequest = prepareBookingRequest();
+      console.log('📋 CHECKOUT - Booking request data:', bookingRequest);
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Validate data before sending
+      if (!bookingRequest.finalAmount || bookingRequest.finalAmount <= 0) {
+        throw new Error('Invalid final amount. Please refresh and try again.');
+      }
+
+      // Create booking via API
+      const bookingResponse = await bookingService.createBooking(bookingRequest);
+      console.log('✅ CHECKOUT - Booking created successfully:', bookingResponse);
 
       showNotification('Booking confirmed successfully!', 'success');
       
+      // Store booking details in localStorage for immediate display
+      const completedBooking = {
+        ...bookingResponse,
+        originalBookingData: bookingData,
+        totals: totals,
+        paymentMethod: paymentMethod,
+        couponCode: couponCode || null,
+        timestamp: new Date().toISOString()
+      };
+
+      localStorage.setItem('latestBooking', JSON.stringify(completedBooking));
+      
       setTimeout(() => {
-        navigate(`${ROUTES.RENTAL_MY_BOOKINGS}`, {
+        navigate(ROUTES.RENTAL_MY_BOOKINGS, {
           state: {
-            bookingData,
-            totals,
-            paymentMethod,
-            couponCode: couponCode || null,
-            bookingId: Date.now().toString()
+            newBooking: completedBooking,
+            showSuccess: true
           }
         });
       }, 1500);
 
     } catch (error) {
-      console.error('💥 CHECKOUT - Payment failed:', error);
-      showNotification('Payment failed. Please try again.', 'error');
+      console.error('💥 CHECKOUT - Booking creation failed:', error);
+      
+      let errorMessage = 'Booking failed. Please try again.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || error.response.data || errorMessage;
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      showNotification(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -209,13 +313,27 @@ export default function RentalCheckout() {
     });
   };
 
-  const formatTimeOnly = (date) => {
-    if (!date) return '';
-    return new Date(date).toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+  const formatTimeOnly = (time) => {
+    if (!time) return '';
+    
+    // Handle time format (HH:MM or full datetime)
+    if (time.includes('T')) {
+      return new Date(time).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      // Assume it's in HH:MM format
+      const [hours, minutes] = time.split(':');
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return date.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
   };
 
   // Show loading while checking auth
