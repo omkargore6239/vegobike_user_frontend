@@ -1,0 +1,319 @@
+// src/components/ChatPanel.jsx
+import React, { useState, useRef, useEffect } from "react";
+import { Send } from "lucide-react";
+
+const ChatPanel = ({
+  chatId,
+  userId,
+  contactData,
+  onTypingChange,
+  getTypingState,
+}) => {
+  const [newMessage, setNewMessage] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      chatId: 1,
+      senderId: userId,
+      message:
+        "Hi, I am vivek khadake. I can be reached at +919545887885. I am interested in your ad posting.",
+      messageType: "TEXT",
+      timestamp: "2025-09-30T15:55:00Z",
+      isRead: true,
+    },
+    {
+      id: 2,
+      chatId: 1,
+      senderId: 456,
+      message:
+        "Hi vivek khadake, that's a Great Choice! Our Trusted Partner team will reach out to you shortly. Thank you for choosing BikeWale Listing.",
+      messageType: "TEXT",
+      timestamp: "2025-09-30T15:55:00Z",
+      isRead: true,
+    },
+  ]);
+  const messagesEndRef = useRef(null);
+
+  // Get typing states
+  const isUserTyping = getTypingState(chatId, userId);
+  const isContactTyping = getTypingState(chatId, 456);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isContactTyping]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleTypingChange = (value) => {
+    setNewMessage(value);
+
+    if (value.trim()) {
+      onTypingChange(chatId, userId, true);
+    } else {
+      onTypingChange(chatId, userId, false);
+    }
+  };
+
+  const handleSendMessage = (messageText = newMessage) => {
+    if (messageText.trim()) {
+      const newMsg = {
+        id: messages.length + 1,
+        chatId: chatId,
+        senderId: userId,
+        message: messageText.trim(),
+        messageType: "TEXT",
+        timestamp: new Date().toISOString(),
+        isRead: false,
+      };
+
+      setMessages((prev) => [...prev, newMsg]);
+      setNewMessage("");
+
+      onTypingChange(chatId, userId, false);
+
+      setTimeout(() => {
+        onTypingChange(chatId, 456, true);
+
+        setTimeout(() => {
+          onTypingChange(chatId, 456, false);
+
+          if (Math.random() > 0.3) {
+            const autoReplies = [
+              "Thank you for your interest!",
+              "Let me check the availability.",
+              "Can we schedule a meeting?",
+              "The bike is in excellent condition.",
+              "When would you like to see it?",
+            ];
+
+            const randomReply =
+              autoReplies[Math.floor(Math.random() * autoReplies.length)];
+
+            setTimeout(() => {
+              const replyMsg = {
+                id: messages.length + 2,
+                chatId: chatId,
+                senderId: 456,
+                message: randomReply,
+                messageType: "TEXT",
+                timestamp: new Date().toISOString(),
+                isRead: false,
+              };
+
+              setMessages((prev) => [...prev, replyMsg]);
+            }, 500);
+          }
+        }, 3000);
+      }, 1000);
+
+      setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === newMsg.id ? { ...msg, isRead: true } : msg
+          )
+        );
+      }, 2000);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const isMyMessage = (message) => {
+    return message.senderId?.toString() === userId.toString();
+  };
+
+  const TypingIndicator = () => (
+    <div className="flex justify-start mb-4">
+      <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600">
+            {contactData.contactName} is typing
+          </span>
+          <div className="flex space-x-1">
+            <div
+              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              style={{ animationDelay: "0ms" }}
+            ></div>
+            <div
+              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              style={{ animationDelay: "150ms" }}
+            ></div>
+            <div
+              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              style={{ animationDelay: "300ms" }}
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!contactData) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50">
+        <div className="text-center">
+          <span className="text-gray-600">
+            Select a chat to start messaging
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header */}
+      <div className="bg-white px-6 py-4 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <img
+              src={contactData.avatar}
+              alt={contactData.contactName}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+            {contactData.isOnline && (
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+            )}
+            {(isUserTyping || isContactTyping) && (
+              <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-1.5">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="font-semibold text-lg text-gray-900">
+              {contactData.contactName}
+            </h2>
+            <div className="flex items-center space-x-2 text-sm">
+              {isUserTyping ? (
+                <span className="text-green-500 italic font-medium">
+                  You are typing...
+                </span>
+              ) : isContactTyping ? (
+                <div className="flex items-center space-x-1">
+                  <span className="text-blue-500 italic font-medium">
+                    typing
+                  </span>
+                  <div className="flex space-x-1">
+                    <div
+                      className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    ></div>
+                    <div
+                      className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    ></div>
+                    <div
+                      className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    ></div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="text-gray-600">
+                    {contactData.bikeInfo.title}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="font-semibold text-green-600">
+                    {contactData.bikeInfo.price}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-gray-600">
+                    {contactData.bikeInfo.km}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        {messages
+          .filter((msg) => msg.chatId === chatId)
+          .map((message, index) => {
+            const isMine = isMyMessage(message);
+            return (
+              <div
+                key={index}
+                className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                    isMine
+                      ? "bg-blue-500 text-white rounded-br-sm"
+                      : "bg-white text-gray-800 shadow-sm rounded-bl-sm"
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed">{message.message}</p>
+                  <div
+                    className={`text-xs mt-2 ${
+                      isMine ? "text-blue-100" : "text-gray-500"
+                    } flex items-center justify-end space-x-1`}
+                  >
+                    <span>{formatTime(message.timestamp)}</span>
+                    {isMine && (
+                      <span className="ml-1">
+                        {message.isRead ? "✓✓" : "✓"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+        {isContactTyping && <TypingIndicator />}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Message Input - Keep Send Button, Remove Mic Button */}
+      <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => handleTypingChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type a message"
+              className="w-full px-4 py-3 bg-gray-100 rounded-full border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+
+          {/* Keep Send Button */}
+          <button
+            onClick={() => handleSendMessage()}
+            disabled={!newMessage.trim()}
+            className="p-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send size={20} />
+          </button>
+
+          {/* Removed Mic Button and Recording functionality */}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ChatPanel;

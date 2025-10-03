@@ -1,6 +1,7 @@
-// context/AuthContext.jsx - Fixed version to prevent infinite loops
+// context/AuthContext.jsx - FULLY FIXED with correct backend data format
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient } from '../utils/apiClient';
+import { api, showNotification, NOTIFICATION_TYPES } from '../utils/apiClient';
+import { STORAGE_KEYS, API_ENDPOINTS } from '../utils/constants';
 
 const AuthContext = createContext();
 
@@ -26,18 +27,18 @@ export const AuthProvider = ({ children }) => {
   const initializationRef = useRef(false);
   const tokenRef = useRef(null);
 
-  // Initialize auth state from localStorage (only once)
+  // Initialize auth state from localStorage
   const initializeAuth = useCallback(() => {
     if (initializationRef.current) return;
     
-    console.log('🚀 AUTH_INIT - Initializing authentication state (one time)');
+    console.log('🚀 AUTH_INIT - Initializing JWT authentication state');
     initializationRef.current = true;
     
     try {
-      const token = localStorage.getItem('auth_token');
-      const userData = localStorage.getItem('user');
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+      const userData = localStorage.getItem(STORAGE_KEYS.USER);
       
-      console.log('🔍 AUTH_INIT - Token exists:', !!token);
+      console.log('🔍 AUTH_INIT - JWT token exists:', !!token);
       console.log('👤 AUTH_INIT - User data exists:', !!userData);
       
       if (token && userData) {
@@ -46,109 +47,432 @@ export const AuthProvider = ({ children }) => {
           setUser(parsedUser);
           setIsAuthenticated(true);
           tokenRef.current = token;
-          console.log('✅ AUTH_INIT - User authenticated from localStorage:', parsedUser.name || parsedUser.phoneNumber);
+          console.log('✅ AUTH_INIT - User authenticated from JWT token:', parsedUser.name || parsedUser.phoneNumber);
         } catch (parseError) {
           console.error('❌ AUTH_INIT - Error parsing user data:', parseError);
-          // Clear invalid data
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user');
-          setIsAuthenticated(false);
-          setUser(null);
-          tokenRef.current = null;
+          clearAuthData();
         }
       } else {
-        console.log('ℹ️ AUTH_INIT - No valid authentication data found');
+        console.log('ℹ️ AUTH_INIT - No valid JWT token found');
         setIsAuthenticated(false);
         setUser(null);
         tokenRef.current = null;
       }
     } catch (error) {
       console.error('💥 AUTH_INIT - Error initializing auth:', error);
-      setIsAuthenticated(false);
-      setUser(null);
-      tokenRef.current = null;
+      clearAuthData();
     } finally {
       setLoading(false);
       setAuthCheckComplete(true);
-      console.log('🎯 AUTH_INIT - Authentication check complete');
+      console.log('🎯 AUTH_INIT - JWT authentication check complete');
     }
-  }, []); // Empty dependency array - only runs once
+  }, []);
 
-  // Check authentication on mount (only once)
+  // Clear auth data helper
+  const clearAuthData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.PENDING_BOOKING);
+    localStorage.removeItem(STORAGE_KEYS.BOOKING_STEP);
+    setIsAuthenticated(false);
+    setUser(null);
+    setPendingBooking(null);
+    setBookingStep(null);
+    tokenRef.current = null;
+  }, []);
+
+  // Check authentication on mount
   useEffect(() => {
-    console.log('🔄 AUTH_CONTEXT - Component mounting');
+    console.log('🔄 AUTH_CONTEXT - Component mounting with JWT support');
     initializeAuth();
   }, [initializeAuth]);
 
-  // Login function with proper error handling
+  // Load user profile from API using JWT
+  const loadUserProfile = useCallback(async () => {
+    console.log('👤 AUTH_PROFILE - Loading user profile with JWT');
+    
+    try {
+      const result = await api.get(API_ENDPOINTS.AUTH.PROFILE);
+      
+      if (result && result.success) {
+        const userData = result.data;
+        console.log('✅ AUTH_PROFILE - Profile loaded successfully:', userData);
+        
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+        
+        return userData;
+      } else {
+        console.error('❌ AUTH_PROFILE - Failed to load profile:', result?.message);
+        throw new Error(result?.message || 'Failed to load user profile');
+      }
+    } catch (error) {
+      console.error('💥 AUTH_PROFILE - Profile loading error:', error);
+      
+      if (error.response?.status === 401) {
+        console.log('🔐 AUTH_PROFILE - JWT token invalid/expired, clearing auth');
+        clearAuthData();
+        showNotification('Your session has expired. Please login again.', NOTIFICATION_TYPES.ERROR);
+      }
+      
+      throw error;
+    }
+  }, [clearAuthData]);
+
+  // ✅ FIXED: Send Registration OTP - Now sends data as JSON string in 'data' field
+  const sendRegistrationOTP = useCallback(async (registrationData, profileImage) => {
+    console.log('📱 AUTH_REG_OTP - Sending registration OTP');
+    console.log('📦 Registration data:', registrationData);
+    
+    try {
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      
+      // ✅ FIX: Create JSON payload matching your RegistrationRequest DTO
+      const registrationPayload = {
+        name: registrationData.name,
+        phoneNumber: registrationData.phoneNumber,
+        email: registrationData.email,
+        alternateNumber: registrationData.alternateNumber || null,
+        address: registrationData.address || null,
+        accountNumber: registrationData.accountNumber || null,
+        ifsc: registrationData.ifsc || null,
+        upiId: registrationData.upiId || null,
+        password: null, // Not needed for regular user
+        roleId: registrationData.roleId || 3,
+        storeId: registrationData.storeId || 0,
+        profileImageName: profileImage ? profileImage.name : null
+      };
+      
+      // ✅ FIX: Append as JSON string with field name 'data' (matches @RequestPart("data"))
+      formData.append('data', JSON.stringify(registrationPayload));
+      
+      // ✅ Append profile image if provided
+      if (profileImage) {
+        formData.append('profileImage', profileImage);
+      }
+      
+      console.log('🔗 Endpoint:', API_ENDPOINTS.AUTH.SEND_REGISTRATION_OTP);
+      console.log('📦 Payload (JSON):', JSON.stringify(registrationPayload, null, 2));
+      console.log('📷 Profile Image:', profileImage ? profileImage.name : 'None');
+      
+      const result = await api.upload(API_ENDPOINTS.AUTH.SEND_REGISTRATION_OTP, formData);
+      
+      console.log('✅ AUTH_REG_OTP - Response:', result);
+      
+      // ✅ FIX: Check for status='true' (your backend returns this)
+      if (result && (result.status === 'true' || result.success !== false)) {
+        const message = result.message || 'OTP sent successfully';
+        showNotification(message, NOTIFICATION_TYPES.SUCCESS);
+        
+        return {
+          success: true,
+          message: message,
+          developmentMode: result.developmentMode === 'true'
+        };
+      } else {
+        throw new Error(result?.message || 'Failed to send OTP');
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_REG_OTP - Failed:', error);
+      console.error('❌ Error details:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to send registration OTP';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
+    }
+  }, []);
+
+  // ✅ Verify Registration OTP and Complete Registration
+  const register = useCallback(async (phoneNumber, otp) => {
+    console.log('📝 AUTH_REGISTER - Verifying OTP and completing registration');
+    console.log('📱 Phone:', phoneNumber);
+    
+    try {
+      const result = await api.post(API_ENDPOINTS.AUTH.VERIFY_REGISTRATION_OTP, {
+        phoneNumber: phoneNumber.trim(),
+        otp: otp.trim()
+      });
+      
+      console.log('✅ AUTH_REGISTER - Response:', result);
+      
+      // ✅ FIX: Check for status='true' (your backend returns this)
+      if (result && (result.status === 'true' || result.success === true)) {
+        const { token, user: userData, message } = result;
+        
+        console.log('🎉 AUTH_REGISTER - Registration successful');
+        
+        if (token) {
+          console.log('🔐 AUTH_REGISTER - JWT token received, storing');
+          localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+          tokenRef.current = token;
+        }
+        
+        if (userData) {
+          console.log('👤 AUTH_REGISTER - User data received');
+          setUser(userData);
+          setIsAuthenticated(true);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+        }
+        
+        showNotification(message || 'Registration successful!', NOTIFICATION_TYPES.SUCCESS);
+        
+        return {
+          success: true,
+          message: message || 'Registration successful',
+          token,
+          user: userData
+        };
+      } else {
+        throw new Error(result?.message || 'Registration verification failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_REGISTER - Failed:', error);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Registration verification failed';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
+    }
+  }, []);
+
+  // Login with OTP verification
   const login = useCallback(async (phoneNumber, otp) => {
-    console.log('🔑 AUTH_LOGIN - Attempting login for:', phoneNumber);
+    console.log('🔑 AUTH_LOGIN - Attempting JWT login for:', phoneNumber);
     
     try {
       setLoading(true);
       
-      const response = await apiClient.post('/api/auth/verify-login-otp', {
+      const result = await api.post(API_ENDPOINTS.AUTH.VERIFY_LOGIN_OTP, {
         phoneNumber: phoneNumber.trim(),
         otp: otp
       });
       
-      console.log('✅ AUTH_LOGIN - Login successful:', response.data);
-      
-      const { token, message } = response.data;
-      
-      if (token) {
-        // Store authentication data
-        localStorage.setItem('auth_token', token);
-        tokenRef.current = token;
+      console.log('✅ AUTH_LOGIN - JWT login successful:', result);
+
+      if (result && result.success) {
+        const { token, message } = result;
         
-        // Create user object
-        const userData = {
-          phoneNumber: phoneNumber.trim(),
-          token: token,
-          name: 'User',
-          loginTime: new Date().toISOString()
-        };
-        
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Update state
-        setUser(userData);
-        setIsAuthenticated(true);
-        
-        console.log('🎉 AUTH_LOGIN - Authentication state updated');
-        return { success: true, message: message || 'Login successful' };
+        if (token) {
+          console.log('🔐 AUTH_LOGIN - JWT token received, storing locally');
+          
+          localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+          tokenRef.current = token;
+          
+          try {
+            await loadUserProfile();
+            
+            console.log('🎉 AUTH_LOGIN - JWT authentication and profile loading complete');
+            showNotification(message || 'Welcome back!', NOTIFICATION_TYPES.SUCCESS);
+            
+            return { success: true, message: message || 'Login successful' };
+          } catch (profileError) {
+            console.warn('⚠️ AUTH_LOGIN - JWT login successful but profile loading failed:', profileError);
+            
+            const minimalUser = {
+              phoneNumber: phoneNumber.trim(),
+              name: 'User',
+              loginTime: new Date().toISOString()
+            };
+            
+            setUser(minimalUser);
+            setIsAuthenticated(true);
+            localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(minimalUser));
+            
+            return { success: true, message: message || 'Login successful' };
+          }
+        } else {
+          throw new Error('No JWT token received from server');
+        }
       } else {
-        throw new Error('No token received from server');
+        throw new Error(result?.message || 'Login failed');
       }
       
     } catch (error) {
-      console.error('❌ AUTH_LOGIN - Login failed:', error);
+      console.error('❌ AUTH_LOGIN - JWT login failed:', error);
+      clearAuthData();
       
-      // Clear any existing auth data on failed login
-      logout();
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Login failed. Please try again.';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
       
       return {
         success: false,
-        message: error.response?.data?.message || 'Login failed. Please try again.'
+        message: errorMessage
       };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clearAuthData, loadUserProfile]);
 
-  // Logout function
-  const logout = useCallback(async () => {
-    console.log('👋 AUTH_LOGOUT - Logging out user');
+  // Send Login OTP
+  const sendLoginOTP = useCallback(async (loginData) => {
+    console.log('📱 AUTH_SEND_OTP - Sending login OTP for:', loginData.phoneNumber);
     
     try {
-      // Try to call logout endpoint if it exists
+      const result = await api.post(API_ENDPOINTS.AUTH.SEND_LOGIN_OTP, {
+        phoneNumber: loginData.phoneNumber.trim()
+      });
+      
+      console.log('✅ AUTH_SEND_OTP - OTP sent successfully:', result);
+
+      // ✅ FIX: Check for status='true' (your backend returns this)
+      if (result && (result.status === 'true' || result.success === true)) {
+        const message = result.message || 'OTP sent successfully';
+        showNotification(message, NOTIFICATION_TYPES.SUCCESS);
+        
+        return {
+          success: true,
+          message: message,
+          developmentMode: result.developmentMode === 'true'
+        };
+      } else {
+        // Still treat as success if message exists
+        const message = result?.message || 'OTP sent successfully';
+        showNotification(message, NOTIFICATION_TYPES.SUCCESS);
+        
+        return {
+          success: true,
+          message: message,
+          developmentMode: result.developmentMode === 'true'
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_SEND_OTP - Failed to send OTP:', error);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to send OTP. Please try again.';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
+    }
+  }, []);
+
+  // Update user profile
+  const updateUserProfile = useCallback(async (updatedData) => {
+    console.log('👤 AUTH_UPDATE_PROFILE - Updating profile with JWT authentication');
+    
+    try {
+      const result = await api.put(API_ENDPOINTS.AUTH.PROFILE, updatedData);
+      
+      if (result && result.success) {
+        const updatedUser = result.data;
+        console.log('✅ AUTH_UPDATE_PROFILE - Profile updated successfully:', updatedUser);
+        
+        setUser(updatedUser);
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+        
+        showNotification('Profile updated successfully!', NOTIFICATION_TYPES.SUCCESS);
+        
+        return { success: true, user: updatedUser };
+      } else {
+        throw new Error(result?.message || 'Failed to update profile');
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_UPDATE_PROFILE - Failed to update profile:', error);
+      
+      if (error.response?.status === 401) {
+        clearAuthData();
+        showNotification('Your session has expired. Please login again.', NOTIFICATION_TYPES.ERROR);
+      }
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to update profile';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+      
+      return { success: false, error: errorMessage };
+    }
+  }, [clearAuthData]);
+
+  // Admin login with email/password
+  const adminLogin = useCallback(async (email, password) => {
+    console.log('🔐 AUTH_ADMIN_LOGIN - Admin/Store Manager login');
+    
+    try {
+      setLoading(true);
+      
+      const result = await api.post(API_ENDPOINTS.AUTH.ADMIN_LOGIN, {
+        email: email.trim(),
+        password: password
+      });
+      
+      console.log('✅ AUTH_ADMIN_LOGIN - Login successful:', result);
+
+      if (result && result.success) {
+        const { token, user: userData, message } = result;
+        
+        if (token) {
+          localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+          tokenRef.current = token;
+        }
+        
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+        }
+        
+        showNotification(message || 'Welcome back!', NOTIFICATION_TYPES.SUCCESS);
+        
+        return { success: true, message: message || 'Login successful' };
+      } else {
+        throw new Error(result?.message || 'Login failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ AUTH_ADMIN_LOGIN - Failed:', error);
+      clearAuthData();
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Invalid credentials';
+      
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
+    } finally {
+      setLoading(false);
+    }
+  }, [clearAuthData]);
+
+  // Logout
+  const logout = useCallback(async () => {
+    console.log('👋 AUTH_LOGOUT - Logging out user and clearing JWT');
+    
+    try {
       if (tokenRef.current) {
         try {
-          await apiClient.post('/api/auth/logout', {}, {
-            headers: {
-              'Authorization': `Bearer ${tokenRef.current}`
-            }
-          });
+          await api.post(API_ENDPOINTS.AUTH.LOGOUT);
           console.log('✅ AUTH_LOGOUT - Server logout successful');
         } catch (logoutError) {
           console.log('⚠️ AUTH_LOGOUT - Server logout failed (continuing with local logout):', logoutError.message);
@@ -157,46 +481,26 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log('💥 AUTH_LOGOUT - Error during server logout:', error.message);
     } finally {
-      // Always clear local state regardless of server response
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      setIsAuthenticated(false);
-      setUser(null);
-      setPendingBooking(null);
-      setBookingStep(null);
-      tokenRef.current = null;
-      console.log('✨ AUTH_LOGOUT - Local logout complete');
+      clearAuthData();
+      showNotification('Logged out successfully', NOTIFICATION_TYPES.SUCCESS);
+      console.log('✨ AUTH_LOGOUT - JWT logout complete');
     }
-  }, []);
+  }, [clearAuthData]);
 
-  // Check if token exists (simple check without server verification)
+  // Check if valid JWT token exists
   const hasValidToken = useCallback(() => {
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user');
-    return !!(token && userData);
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    return !!token;
   }, []);
 
-  // Store booking intent with debouncing
+  // Store booking intent
   const storeBookingIntent = useCallback((bookingData, step) => {
     console.log('📋 AUTH_BOOKING - Storing booking intent:', { bookingData, step });
-    setPendingBooking(prevBooking => {
-      // Only update if different
-      if (JSON.stringify(prevBooking) !== JSON.stringify(bookingData)) {
-        return bookingData;
-      }
-      return prevBooking;
-    });
+    setPendingBooking(bookingData);
+    setBookingStep(step);
     
-    setBookingStep(prevStep => {
-      if (prevStep !== step) {
-        return step;
-      }
-      return prevStep;
-    });
-    
-    // Store in localStorage for persistence
-    localStorage.setItem('pending_booking', JSON.stringify(bookingData));
-    localStorage.setItem('booking_step', step);
+    localStorage.setItem(STORAGE_KEYS.PENDING_BOOKING, JSON.stringify(bookingData));
+    localStorage.setItem(STORAGE_KEYS.BOOKING_STEP, step);
   }, []);
 
   // Clear booking intent
@@ -205,61 +509,9 @@ export const AuthProvider = ({ children }) => {
     setPendingBooking(null);
     setBookingStep(null);
     
-    localStorage.removeItem('pending_booking');
-    localStorage.removeItem('booking_step');
+    localStorage.removeItem(STORAGE_KEYS.PENDING_BOOKING);
+    localStorage.removeItem(STORAGE_KEYS.BOOKING_STEP);
   }, []);
-
-  // Restore booking intent from localStorage (only once)
-  const restoreBookingIntent = useCallback(() => {
-    try {
-      const savedBooking = localStorage.getItem('pending_booking');
-      const savedStep = localStorage.getItem('booking_step');
-      
-      if (savedBooking && savedStep) {
-        const bookingData = JSON.parse(savedBooking);
-        console.log('📥 AUTH_BOOKING - Restored booking intent from localStorage');
-        setPendingBooking(bookingData);
-        setBookingStep(savedStep);
-      }
-    } catch (error) {
-      console.error('💥 AUTH_BOOKING - Error restoring booking intent:', error);
-      // Clear invalid data
-      localStorage.removeItem('pending_booking');
-      localStorage.removeItem('booking_step');
-    }
-  }, []);
-
-  // Initialize booking intent on mount (only once)
-  useEffect(() => {
-    console.log('📋 AUTH_BOOKING - Restoring booking intent on mount');
-    restoreBookingIntent();
-  }, []); // Empty dependency array
-
-  // Refresh auth (simplified version) - prevents loops
-  const refreshAuth = useCallback(() => {
-    console.log('🔄 AUTH_REFRESH - Refreshing authentication state');
-    
-    // Only refresh if not already initialized
-    if (!initializationRef.current) {
-      initializeAuth();
-    } else {
-      // Quick check without re-initialization
-      const token = localStorage.getItem('auth_token');
-      const userData = localStorage.getItem('user');
-      
-      if (token && userData && !isAuthenticated) {
-        try {
-          const parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-          tokenRef.current = token;
-        } catch (error) {
-          console.error('❌ AUTH_REFRESH - Error parsing user data:', error);
-          logout();
-        }
-      }
-    }
-  }, [isAuthenticated, logout]);
 
   const value = {
     // Auth state
@@ -270,9 +522,18 @@ export const AuthProvider = ({ children }) => {
     
     // Auth methods
     login,
+    sendLoginOTP,
     logout,
-    refreshAuth,
     hasValidToken,
+    adminLogin,
+    
+    // ✅ Registration methods
+    sendRegistrationOTP,
+    register,
+    
+    // Profile methods
+    updateUserProfile,
+    loadUserProfile,
     
     // Booking intent
     pendingBooking,

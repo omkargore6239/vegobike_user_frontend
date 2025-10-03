@@ -228,80 +228,98 @@ export default function RentalCheckout() {
     return requestData;
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!paymentMethod) {
-      showNotification('Please select a payment method', 'error');
-      return;
+  // ... (keep all your existing imports and components)
+
+const onSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!paymentMethod) {
+    showNotification('Please select a payment method', 'error');
+    return;
+  }
+
+  if (!termsAccepted) {
+    showNotification('Please accept terms and conditions', 'error');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    console.log('🔄 CHECKOUT - Processing payment and creating booking...');
+
+    // Prepare booking request data
+    const bookingRequest = prepareBookingRequest();
+    console.log('📋 CHECKOUT - Booking request data:', bookingRequest);
+
+    // Validate data before sending
+    if (!bookingRequest.finalAmount || bookingRequest.finalAmount <= 0) {
+      throw new Error('Invalid final amount. Please refresh and try again.');
     }
-    
-    if (!termsAccepted) {
-      showNotification('Please accept terms and conditions', 'error');
-      return;
+
+    // ✅ Create booking via API
+    const bookingResponse = await bookingService.createBooking(bookingRequest);
+    console.log('✅ CHECKOUT - Booking created successfully:', bookingResponse);
+
+    showNotification('Booking confirmed successfully!', 'success');
+
+    // ✅ FIXED: Store the actual booking response (not the fake booking data)
+    // The backend returns BookingBikeResponse with the actual booking data
+    const completedBooking = {
+      // Use the actual response from backend
+      id: bookingResponse.id,
+      bookingId: bookingResponse.bookingId, // "VEGO001" format
+      vehicleId: bookingResponse.vehicleId,
+      customerId: bookingResponse.customerId,
+      finalAmount: bookingResponse.finalAmount,
+      status: bookingResponse.status, // "Confirmed"
+      paymentStatus: bookingResponse.paymentStatus,
+      createdAt: bookingResponse.createdAt,
+      updatedAt: bookingResponse.updatedAt,
+      
+      // Keep UI display data for convenience
+      originalBookingData: bookingData,
+      totals: totals,
+      paymentMethod: paymentMethod,
+      couponCode: couponCode || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Store in localStorage for immediate display
+    localStorage.setItem('latestBooking', JSON.stringify(completedBooking));
+
+    // ✅ FIXED: Navigate to MyBookings with success state
+    setTimeout(() => {
+      navigate(ROUTES.RENTAL + '/my-bookings', {
+        state: {
+          newBooking: completedBooking,
+          showSuccess: true
+        },
+        replace: true // Replace current history entry
+      });
+    }, 1500);
+
+  } catch (error) {
+    console.error('💥 CHECKOUT - Booking creation failed:', error);
+
+    let errorMessage = 'Booking failed. Please try again.';
+
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.response) {
+      // Server responded with error status
+      errorMessage = error.response.data?.message || error.response.data || errorMessage;
+    } else if (error.request) {
+      // Request made but no response
+      errorMessage = 'Network error. Please check your connection.';
     }
 
-    setIsLoading(true);
+    showNotification(errorMessage, 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    try {
-      console.log('💳 CHECKOUT - Processing payment and creating booking...');
-      
-      // Prepare booking request data
-      const bookingRequest = prepareBookingRequest();
-      console.log('📋 CHECKOUT - Booking request data:', bookingRequest);
-
-      // Validate data before sending
-      if (!bookingRequest.finalAmount || bookingRequest.finalAmount <= 0) {
-        throw new Error('Invalid final amount. Please refresh and try again.');
-      }
-
-      // Create booking via API
-      const bookingResponse = await bookingService.createBooking(bookingRequest);
-      console.log('✅ CHECKOUT - Booking created successfully:', bookingResponse);
-
-      showNotification('Booking confirmed successfully!', 'success');
-      
-      // Store booking details in localStorage for immediate display
-      const completedBooking = {
-        ...bookingResponse,
-        originalBookingData: bookingData,
-        totals: totals,
-        paymentMethod: paymentMethod,
-        couponCode: couponCode || null,
-        timestamp: new Date().toISOString()
-      };
-
-      localStorage.setItem('latestBooking', JSON.stringify(completedBooking));
-      
-      setTimeout(() => {
-        navigate(ROUTES.RENTAL_MY_BOOKINGS, {
-          state: {
-            newBooking: completedBooking,
-            showSuccess: true
-          }
-        });
-      }, 1500);
-
-    } catch (error) {
-      console.error('💥 CHECKOUT - Booking creation failed:', error);
-      
-      let errorMessage = 'Booking failed. Please try again.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.response) {
-        // Server responded with error status
-        errorMessage = error.response.data?.message || error.response.data || errorMessage;
-      } else if (error.request) {
-        // Request made but no response
-        errorMessage = 'Network error. Please check your connection.';
-      }
-      
-      showNotification(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatDateOnly = (date) => {
     if (!date) return '';

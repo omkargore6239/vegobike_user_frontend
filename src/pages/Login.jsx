@@ -1,17 +1,21 @@
-// pages/Login.jsx - Fixed version to prevent infinite loops
+// pages/Login.jsx - FULLY UPDATED with proper JWT token handling for booking
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { ROUTES, BOOKING_STEPS } from '../utils/constants';
 import {
   PhoneIcon,
   ShieldCheckIcon,
   ClockIcon,
   ArrowLeftIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+
+import { api, showNotification, NOTIFICATION_TYPES } from '../utils/apiClient';
+import {
+  API_ENDPOINTS,
+  STORAGE_KEYS
+} from '../utils/constants';
 
 // Enhanced OTP Input Component
 const OTPInput = ({ length = 4, onComplete, loading = false, showHint = false }) => {
@@ -72,9 +76,7 @@ const OTPInput = ({ length = 4, onComplete, loading = false, showHint = false })
   const fillTestOTP = () => {
     const testOTP = ['1', '2', '3', '4'];
     setOTP(testOTP);
-    setTimeout(() => {
-      onComplete(testOTP.join(''));
-    }, 500);
+    setTimeout(() => onComplete(testOTP.join('')), 500);
   };
 
   return (
@@ -97,7 +99,6 @@ const OTPInput = ({ length = 4, onComplete, loading = false, showHint = false })
             focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 
             disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
             placeholder="•"
-            autoFocus={index === 0}
           />
         ))}
       </div>
@@ -135,90 +136,20 @@ const Login = () => {
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [debugMode, setDebugMode] = useState(true);
-  
-  // Prevent infinite redirects
-  const [redirectHandled, setRedirectHandled] = useState(false);
+  const [developmentMode, setDevelopmentMode] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const { 
-    isAuthenticated,
-    authCheckComplete,
-    pendingBooking,
-    bookingStep,
-    login,
-    loading: authLoading
-  } = useAuth();
 
-  // Enhanced URL parameter handling - memoized to prevent recalculation
-  const urlInfo = React.useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    const returnUrl = params.get('returnUrl');
-    const bikeId = params.get('bikeId');
-    const action = params.get('action');
-    
-    return {
-      returnUrl,
-      returnPath: returnUrl ? decodeURIComponent(returnUrl) : null,
-      bikeId,
-      action,
-      hasBookingIntent: !!(bikeId && action)
-    };
-  }, [location.search]);
-
-  // Enhanced redirect logic after successful login - prevent loops
-  const handleSuccessfulLogin = React.useCallback(() => {
-    if (redirectHandled) return;
-    
-    console.log('🚀 LOGIN - Handling successful login redirect');
-    setRedirectHandled(true);
-    
-    let redirectPath = ROUTES.RENTAL;
-    
-    if (urlInfo.returnUrl) {
-      redirectPath = decodeURIComponent(urlInfo.returnUrl);
-      console.log('🔄 LOGIN - Redirecting to return URL:', redirectPath);
-    } else if (pendingBooking) {
-      switch (bookingStep) {
-        case BOOKING_STEPS.CHECKOUT:
-          if (pendingBooking.bikeId) {
-            redirectPath = `/rental/booking/${pendingBooking.bikeId}`;
-          }
-          break;
-        case BOOKING_STEPS.BIKES:
-          redirectPath = `${ROUTES.RENTAL}/bikes`;
-          break;
-        default:
-          redirectPath = ROUTES.RENTAL;
-      }
-      console.log('📋 LOGIN - Redirecting based on pending booking:', redirectPath);
-    } else if (urlInfo.hasBookingIntent) {
-      if (urlInfo.action === 'book' && urlInfo.bikeId) {
-        redirectPath = `/rental/bike/${urlInfo.bikeId}`;
-      } else {
-        redirectPath = `${ROUTES.RENTAL}/bikes`;
-      }
-      console.log('🎯 LOGIN - Redirecting based on URL booking intent:', redirectPath);
-    }
-    
-    setSuccess('Login successful! Redirecting...');
-    
-    setTimeout(() => {
-      console.log('🔀 LOGIN - Navigating to:', redirectPath);
-      navigate(redirectPath, { replace: true });
-    }, 1000);
-  }, [redirectHandled, urlInfo, pendingBooking, bookingStep, navigate]);
-
-  // Redirect if already authenticated - prevent infinite loops
   useEffect(() => {
-    if (isAuthenticated && authCheckComplete && !redirectHandled) {
-      console.log('✅ LOGIN - User already authenticated, triggering redirect');
-      handleSuccessfulLogin();
+    if (location.state?.message) {
+      setSuccess(location.state.message);
+      if (location.state.phoneNumber) {
+        setPhoneNumber(location.state.phoneNumber);
+      }
     }
-  }, [isAuthenticated, authCheckComplete, redirectHandled, handleSuccessfulLogin]);
+  }, [location]);
 
-  // Countdown timer
   useEffect(() => {
     let timer;
     if (countdown > 0) {
@@ -227,7 +158,6 @@ const Login = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Form validation
   const validateForm = () => {
     const phone = phoneNumber.trim();
     
@@ -250,107 +180,202 @@ const Login = () => {
     return true;
   };
 
-  // Send OTP
   const handleSendOTP = async (e) => {
     e.preventDefault();
     
-    setError('');
-    setSuccess('');
-    setOtpError('');
-    
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
     
     setLoading(true);
-    
+    setError('');
+    setSuccess('');
+
     try {
-      // Simulate OTP sending - replace with actual API call if needed
-      console.log('📱 LOGIN - Sending OTP to:', phoneNumber);
-      setSuccess('OTP sent successfully! Use test OTP: 1234');
-      setStep('otp');
-      setCountdown(30);
-      
+      console.log('📱 LOGIN - Sending OTP for:', phoneNumber);
+
+      const result = await api.post(API_ENDPOINTS.AUTH.SEND_LOGIN_OTP, {
+        phoneNumber: phoneNumber.trim()
+      });
+
+      console.log('✅ LOGIN - OTP Response:', result);
+
+      if (result && (result.status === 'true' || result.success !== false)) {
+        const responseData = result.data || result;
+        setSuccess(responseData.message || 'OTP sent successfully');
+        setDevelopmentMode(responseData.developmentMode === 'true' || false);
+        
+        setStep('otp');
+        setCountdown(30);
+      } else {
+        throw new Error(result?.message || 'Failed to send OTP');
+      }
+
     } catch (err) {
-      console.error('❌ LOGIN - Send OTP error:', err);
-      setError('Failed to send OTP. Please try again.');
+      console.error('❌ LOGIN - Send OTP Error:', err);
+      let errorMessage = 'Failed to send OTP. Please try again.';
+      
+      if (err.response?.status === 404) {
+        errorMessage = 'Phone number not registered. Please register first.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      }
+      
+      setError(errorMessage);
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
     } finally {
       setLoading(false);
     }
   };
 
-  // Enhanced OTP verification using AuthContext login
+  // ✅ FIXED: Properly extract token from backend response
   const handleVerifyOTP = async (otpCode) => {
     console.log('🔐 LOGIN - Verifying OTP:', otpCode);
     setOtpLoading(true);
     setOtpError('');
     
     try {
-      const result = await login(phoneNumber.trim(), otpCode);
-      
-      if (result.success) {
-        console.log('✅ LOGIN - OTP verification successful');
-        handleSuccessfulLogin();
-      } else {
-        console.error('❌ LOGIN - OTP verification failed:', result.message);
-        setOtpError(result.message || 'Invalid OTP. Please try again.');
+      const result = await api.post(API_ENDPOINTS.AUTH.VERIFY_LOGIN_OTP, {
+        phoneNumber: phoneNumber.trim(),
+        otp: otpCode.trim()
+      });
+
+      console.log('✅ LOGIN - Full Response:', JSON.stringify(result, null, 2));
+
+      // ✅ CRITICAL FIX: Token is in result.data.token
+      const token = result.data?.token || result.token;
+      const message = result.data?.message || result.message || 'Login successful';
+      const success = result.data?.success || result.success;
+
+      console.log('🔍 Extracted Values:');
+      console.log('  - Token:', token ? 'EXISTS ✅' : 'MISSING ❌');
+      console.log('  - Success:', success);
+      console.log('  - Message:', message);
+
+      if (!token) {
+        console.error('❌ No token in response. Full response:', result);
+        throw new Error('No token received from server');
+      }
+
+      // ✅ Store JWT token
+      console.log('🔐 Storing JWT token in localStorage');
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+
+      // ✅ Try to load user profile using the token
+      try {
+        console.log('👤 Fetching user profile with token...');
+        const profileResult = await api.get(API_ENDPOINTS.AUTH.PROFILE);
+        
+        if (profileResult && profileResult.success && profileResult.data) {
+          const userData = profileResult.data;
+          console.log('✅ User profile loaded:', userData.name || userData.phoneNumber);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+        } else {
+          throw new Error('Profile load failed');
+        }
+      } catch (profileError) {
+        console.warn('⚠️ Profile load failed, using minimal user data');
+        const minimalUser = {
+          phoneNumber: phoneNumber.trim(),
+          loginTime: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(minimalUser));
       }
       
+      setSuccess(message);
+      showNotification(message, NOTIFICATION_TYPES.SUCCESS);
+      
+      // ✅ Check if there's a return URL (for booking flow)
+      const urlParams = new URLSearchParams(location.search);
+      const returnUrl = urlParams.get('returnUrl');
+      
+      setTimeout(() => {
+        if (returnUrl) {
+          console.log('🚀 Redirecting to return URL:', returnUrl);
+          window.location.href = decodeURIComponent(returnUrl);
+        } else {
+          console.log('🚀 Redirecting to home page...');
+          window.location.href = '/';
+        }
+      }, 1500);
+
     } catch (err) {
-      console.error('💥 LOGIN - Verify OTP error:', err);
-      setOtpError('Invalid OTP. Please try again. (Test OTP: 1234)');
+      console.error('❌ LOGIN - Verification Error:', err);
+      console.error('❌ Error Details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+      
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (err.message === 'No token received from server') {
+        errorMessage = 'Server error: Authentication token not received. Please contact support.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error during login. Please try again.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid or expired OTP. Please try again.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'User not found. Please register first.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      }
+      
+      setOtpError(errorMessage);
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
     } finally {
       setOtpLoading(false);
     }
   };
 
-  // Show loading screen while auth is being checked
-  if (authLoading || !authCheckComplete) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-          <p className="text-gray-600">Checking authentication status...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleResendOTP = async () => {
+    setOtpLoading(true);
+    setOtpError('');
+
+    try {
+      const result = await api.post(API_ENDPOINTS.AUTH.SEND_LOGIN_OTP, {
+        phoneNumber: phoneNumber.trim()
+      });
+
+      if (result && (result.status === 'true' || result.success !== false)) {
+        setSuccess('OTP resent successfully');
+        setCountdown(30);
+        showNotification('New OTP sent to your phone', NOTIFICATION_TYPES.SUCCESS);
+      } else {
+        setOtpError('Failed to resend OTP');
+      }
+    } catch (err) {
+      setOtpError('Failed to resend OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md mx-auto">
         
-        {/* Token Display in Console */}
-        {isAuthenticated && (
-          <script>
-            {console.log('🔑 CURRENT TOKEN:', localStorage.getItem('auth_token'))}
-          </script>
-        )}
-        
         {debugMode && (
           <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-xs">
             <div className="flex justify-between items-center mb-2">
-              <strong>Debug Panel</strong>
+              <strong>Debug Panel - Login</strong>
               <button onClick={() => setDebugMode(false)} className="text-red-600 hover:text-red-800">✕</button>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <p><strong>Step:</strong> {step}</p>
                 <p><strong>Phone:</strong> {phoneNumber}</p>
-                <p><strong>Auth:</strong> {isAuthenticated ? '✅' : '❌'}</p>
-                <p><strong>Token:</strong> {localStorage.getItem('auth_token') ? '✅' : '❌'}</p>
+                <p><strong>Token:</strong> {localStorage.getItem(STORAGE_KEYS.TOKEN) ? '✅' : '❌'}</p>
               </div>
               <div>
-                <p><strong>Return URL:</strong> {urlInfo.returnPath || 'None'}</p>
-                <p><strong>Redirect Handled:</strong> {redirectHandled ? '✅' : '❌'}</p>
                 <p><strong>Test OTP:</strong> <span className="font-mono font-bold text-green-600">1234</span></p>
+                <p><strong>Dev Mode:</strong> {developmentMode ? '✅' : '❌'}</p>
               </div>
             </div>
           </div>
         )}
 
         {step === 'phone' ? (
-          // PHONE NUMBER STEP
           <>
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
@@ -360,23 +385,22 @@ const Login = () => {
               </div>
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
               <p className="text-gray-600">Sign in to your VegoBike account with OTP</p>
+              <p className="text-sm text-green-600 mt-2 font-medium">🔒 Passwordless login</p>
             </div>
 
             <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
               <form onSubmit={handleSendOTP} className="space-y-6">
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
-                    <svg className="h-5 w-5 text-red-400 mr-3 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span>{error}</span>
+                    <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm">{error}</span>
                   </div>
                 )}
 
                 {success && (
                   <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
                     <CheckCircleIcon className="h-5 w-5 text-green-400 mr-3" />
-                    <span>{success}</span>
+                    <span className="text-sm">{success}</span>
                   </div>
                 )}
 
@@ -393,25 +417,21 @@ const Login = () => {
                     </div>
                     <input
                       id="phoneNumber"
-                      name="phoneNumber"
                       type="tel"
-                      required
                       value={phoneNumber}
-                      onChange={e => setPhoneNumber(e.target.value)}
-                      className="block w-full pl-16 pr-3 py-4 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 text-lg"
-                      placeholder="Enter your 10-digit phone number"
-                      maxLength="10"
+                      onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                      required
+                      className="block w-full pl-16 pr-3 py-4 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-lg"
+                      placeholder="9876543210"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    We'll send you a 4-digit verification code via SMS
-                  </p>
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading || phoneNumber.length !== 10}
-                  className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
                     <>
@@ -433,10 +453,7 @@ const Login = () => {
               <div className="text-center mt-6 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-500">
                   Don't have an account?{' '}
-                  <Link
-                    to={`${ROUTES.REGISTER}${location.search}`}
-                    className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
-                  >
+                  <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
                     Register here
                   </Link>
                 </p>
@@ -444,7 +461,6 @@ const Login = () => {
             </div>
           </>
         ) : (
-          // OTP VERIFICATION STEP
           <>
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
@@ -455,23 +471,24 @@ const Login = () => {
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Verify Your Phone</h2>
               <p className="text-gray-600 mb-2">Enter the 4-digit code sent to</p>
               <p className="text-indigo-600 font-semibold">+91 {phoneNumber}</p>
+              {developmentMode && (
+                <p className="text-sm text-green-600 mt-2 font-medium">🧪 Test OTP: 1234</p>
+              )}
             </div>
 
             <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
               <div className="space-y-6">
                 {otpError && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
-                    <svg className="h-5 w-5 text-red-400 mr-3 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span>{otpError}</span>
+                    <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm">{otpError}</span>
                   </div>
                 )}
 
                 {success && (
                   <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
                     <CheckCircleIcon className="h-5 w-5 text-green-400 mr-3" />
-                    <span>{success}</span>
+                    <span className="text-sm">{success}</span>
                   </div>
                 )}
 
@@ -483,18 +500,38 @@ const Login = () => {
                     length={4}
                     onComplete={handleVerifyOTP}
                     loading={otpLoading}
-                    showHint={debugMode}
+                    showHint={developmentMode}
                   />
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    {otpLoading ? 'Verifying...' : 'Code will auto-submit when complete'}
-                  </p>
                 </div>
 
-                <div className="text-center">
+                <div className="flex justify-center space-x-4">
+                  {countdown > 0 ? (
+                    <div className="flex items-center text-gray-500 text-sm">
+                      <ClockIcon className="h-4 w-4 mr-2" />
+                      <span>Resend OTP in {countdown}s</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendOTP}
+                      disabled={otpLoading}
+                      className="text-indigo-600 hover:text-indigo-500 font-medium disabled:opacity-50 transition-colors text-sm"
+                    >
+                      {otpLoading ? 'Sending...' : 'Resend OTP'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-center pt-4 border-t">
                   <button
                     type="button"
-                    onClick={() => setStep('phone')}
-                    className="flex items-center justify-center text-gray-600 hover:text-gray-500 font-medium mx-auto transition-colors duration-200"
+                    onClick={() => {
+                      setStep('phone');
+                      setError('');
+                      setOtpError('');
+                      setSuccess('');
+                    }}
+                    className="flex items-center justify-center text-gray-600 hover:text-gray-500 font-medium mx-auto transition-colors text-sm"
                   >
                     <ArrowLeftIcon className="h-4 w-4 mr-1" />
                     Change Phone Number
@@ -504,12 +541,6 @@ const Login = () => {
             </div>
           </>
         )}
-
-        <div className="text-center mt-6">
-          <p className="text-xs text-gray-400">
-            By continuing, you agree to VegoBike's Terms of Service and Privacy Policy
-          </p>
-        </div>
       </div>
     </div>
   );
