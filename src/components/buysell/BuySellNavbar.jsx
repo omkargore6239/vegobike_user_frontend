@@ -1,16 +1,51 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useScrollPosition from "../../hooks/useScrollPosition";
+import { STORAGE_KEYS } from "../../utils/constants"; // Import STORAGE_KEYS
+import { clearAuthData, redirectToLogin } from "../../utils/apiClient"; // Import auth utilities
 
 const BuySellNavbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isDesktopProfileOpen, setIsDesktopProfileOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Login state
+  const [userData, setUserData] = useState(null); // User data state
+  
   const scrollPosition = useScrollPosition();
   const navigate = useNavigate();
   const mobileMenuRef = useRef(null);
   const profileRef = useRef(null);
+
+  // Check login status on mount and on storage changes
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+      const user = localStorage.getItem(STORAGE_KEYS.USER);
+      
+      setIsLoggedIn(!!token);
+      
+      if (user) {
+        try {
+          setUserData(JSON.parse(user));
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          setUserData(null);
+        }
+      } else {
+        setUserData(null);
+      }
+    };
+
+    checkAuthStatus();
+
+    // Listen for storage changes (for logout in another tab)
+    window.addEventListener('storage', checkAuthStatus);
+    
+    return () => {
+      window.removeEventListener('storage', checkAuthStatus);
+    };
+  }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleProfile = () => setIsProfileOpen(!isProfileOpen);
@@ -33,7 +68,6 @@ const BuySellNavbar = () => {
         setIsMenuOpen(false);
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
-        // Add small delay to allow link navigation before closing
         setTimeout(() => {
           setIsDesktopProfileOpen(false);
         }, 100);
@@ -71,21 +105,53 @@ const BuySellNavbar = () => {
     };
   }, [isMenuOpen]);
 
+  // Handle Sell Click with Login Check
   const handleSellClick = () => {
-    navigate("/sell");
+    if (!isLoggedIn) {
+      redirectToLogin("Please login to sell your bike");
+    } else {
+      navigate("/sell");
+    }
     closeAllMenus();
   };
 
+  // Handle Login Button Click
+  const handleLoginClick = () => {
+    navigate("/login");
+    closeAllMenus();
+  };
+
+  // Handle Logout with proper cleanup
   const handleLogout = () => {
-    console.log("Logging out...");
+    clearAuthData();
+    setIsLoggedIn(false);
+    setUserData(null);
+    navigate("/");
     closeAllMenus();
   };
 
-  // Add explicit enquiries navigation handler
+  // Handle Enquiries Click with Login Check
   const handleEnquiriesClick = () => {
-    navigate("/enquiries");
+    if (!isLoggedIn) {
+      redirectToLogin("Please login to view your enquiries");
+    } else {
+      navigate("/enquiries");
+    }
     closeAllMenus();
   };
+
+  // Handle My Vehicles Click with Login Check
+  const handleMyVehiclesClick = () => {
+    if (!isLoggedIn) {
+      redirectToLogin("Please login to view your vehicles");
+    } else {
+      navigate("/my-vehicles");
+    }
+    closeAllMenus();
+  };
+
+  // Get display name
+  const displayName = userData?.name || userData?.email || "User";
 
   return (
     <>
@@ -151,133 +217,147 @@ const BuySellNavbar = () => {
 
             {/* Desktop Menu - Hidden on Mobile/Tablet */}
             <div className="hidden md:flex items-center gap-3 lg:gap-6">
-              {/* Login Button */}
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                Login
-              </button>
+              {/* Conditional Login/Profile Button */}
+              {!isLoggedIn ? (
+                <button 
+                  onClick={handleLoginClick}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Login
+                </button>
+              ) : null}
 
-              {/* Sell Button */}
+              {/* Sell Button - Always visible but disabled if not logged in */}
               <button
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !isLoggedIn
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                }`}
                 onClick={handleSellClick}
+                disabled={!isLoggedIn}
+                title={!isLoggedIn ? "Please login to sell your bike" : ""}
               >
                 Sell
               </button>
 
-              {/* Desktop Profile Dropdown */}
-              <div className="relative" ref={profileRef}>
-                <button
-                  onClick={toggleDesktopProfile}
-                  className="flex items-center gap-2 text-gray-700 hover:text-blue-600 px-2 lg:px-3 py-2 rounded-md transition-colors focus:outline-none"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {/* Desktop Profile Dropdown - Only show if logged in */}
+              {isLoggedIn && (
+                <div className="relative" ref={profileRef}>
+                  <button
+                    onClick={toggleDesktopProfile}
+                    className="flex items-center gap-2 text-gray-700 hover:text-blue-600 px-2 lg:px-3 py-2 rounded-md transition-colors focus:outline-none"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                  <span className="hidden lg:inline font-medium">Profile</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${
-                      isDesktopProfileOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                    <span className="hidden lg:inline font-medium">Profile</span>
+                    <svg
+                      className={`w-4 h-4 transition-transform ${
+                        isDesktopProfileOpen ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
 
-                {/* Desktop Profile Dropdown Menu */}
-                {isDesktopProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">
-                        User Profile
-                      </p>
-                      <p className="text-xs text-gray-500">user@example.com</p>
+                  {/* Desktop Profile Dropdown Menu */}
+                  {isDesktopProfileOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {displayName}
+                        </p>
+                        {userData?.email && (
+                          <p className="text-xs text-gray-500 truncate">{userData.email}</p>
+                        )}
+                      </div>
+
+                      <Link
+                        to="/enquiries"
+                        onClick={handleEnquiriesClick}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
+                        </svg>
+                        Enquiries
+                      </Link>
+
+                      <Link
+                        to="/my-vehicles"
+                        onClick={handleMyVehiclesClick}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M3 13l2-5h14l2 5M5 13v5a1 1 0 001 1h1a1 1 0 001-1v-1h8v1a1 1 0 001 1h1a1 1 0 001-1v-5M7 18h.01M17 18h.01"
+                          />
+                        </svg>
+                        My Vehicles
+                      </Link>
+
+                      <hr className="border-gray-100 my-1" />
+
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                          />
+                        </svg>
+                        Logout
+                      </button>
                     </div>
-
-                    {/* Updated Link with explicit navigation */}
-                    <Link
-                      to="/enquiries"
-                      onClick={handleEnquiriesClick}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                        />
-                      </svg>
-                      Enquiries
-                    </Link>
-
-                    <Link
-                      to="/my-vehicles"
-                      onClick={closeAllMenus}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M3 13l2-5h14l2 5M5 13v5a1 1 0 001 1h1a1 1 0 001-1v-1h8v1a1 1 0 001 1h1a1 1 0 001-1v-5M7 18h.01M17 18h.01"
-                        />
-                      </svg>
-                      My Vehicles
-                    </Link>
-
-                    <hr className="border-gray-100 my-1" />
-
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                        />
-                      </svg>
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -444,26 +524,38 @@ const BuySellNavbar = () => {
 
               {/* Action Buttons */}
               <div className="pt-4 space-y-3">
-                <button className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-medium transition-colors text-left flex items-center gap-3">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {/* Conditional Login Button */}
+                {!isLoggedIn && (
+                  <button 
+                    onClick={handleLoginClick}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-medium transition-colors text-left flex items-center gap-3"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                  Login
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                    Login
+                  </button>
+                )}
 
+                {/* Sell Button - Disabled if not logged in */}
                 <button
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-lg font-medium transition-colors text-left flex items-center gap-3"
+                  className={`w-full px-4 py-3 rounded-lg font-medium transition-colors text-left flex items-center gap-3 ${
+                    !isLoggedIn
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-yellow-500 hover:bg-yellow-600 text-white"
+                  }`}
                   onClick={handleSellClick}
+                  disabled={!isLoggedIn}
                 >
                   <svg
                     className="w-5 h-5"
@@ -478,112 +570,20 @@ const BuySellNavbar = () => {
                       d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                     />
                   </svg>
-                  Sell Your Bike
+                  {!isLoggedIn ? "Sell (Login Required)" : "Sell Your Bike"}
                 </button>
               </div>
 
-              {/* Mobile Profile Section */}
-              <div className="pt-6 border-t border-gray-200">
-                <button
-                  onClick={toggleProfile}
-                  className="flex justify-between items-center w-full px-0 py-3 text-base font-medium text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                    <span>Profile & Account</span>
-                  </div>
-                  <svg
-                    className={`w-5 h-5 transition-transform ${
-                      isProfileOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {/* Mobile Profile Section - Only show if logged in */}
+              {isLoggedIn && (
+                <div className="pt-6 border-t border-gray-200">
+                  <button
+                    onClick={toggleProfile}
+                    className="flex justify-between items-center w-full px-0 py-3 text-base font-medium text-gray-700 hover:text-blue-600 transition-colors"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                {/* Mobile Profile Dropdown */}
-                {isProfileOpen && (
-                  <div className="bg-gray-50 rounded-lg mt-2 py-2 space-y-1">
-                    <div className="px-4 py-2 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">
-                        User Profile
-                      </p>
-                      <p className="text-xs text-gray-500">user@example.com</p>
-                    </div>
-
-                    {/* Updated Mobile Link with explicit navigation */}
-                    <MobileProfileLink
-                      to="/enquiries"
-                      onClick={handleEnquiriesClick}
-                      icon={
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                          />
-                        </svg>
-                      }
-                    >
-                      My Enquiries
-                    </MobileProfileLink>
-
-                    <MobileProfileLink
-                      to="/my-vehicles"
-                      onClick={closeAllMenus}
-                      icon={
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      }
-                    >
-                      My Vehicles
-                    </MobileProfileLink>
-
-                    <hr className="border-gray-200 my-2" />
-
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded"
-                    >
+                    <div className="flex items-center gap-3">
                       <svg
-                        className="w-4 h-4"
+                        className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -592,14 +592,109 @@ const BuySellNavbar = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth="2"
-                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                         />
                       </svg>
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                      <span>Profile & Account</span>
+                    </div>
+                    <svg
+                      className={`w-5 h-5 transition-transform ${
+                        isProfileOpen ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Mobile Profile Dropdown */}
+                  {isProfileOpen && (
+                    <div className="bg-gray-50 rounded-lg mt-2 py-2 space-y-1">
+                      <div className="px-4 py-2 border-b border-gray-200">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {displayName}
+                        </p>
+                        {userData?.email && (
+                          <p className="text-xs text-gray-500 truncate">{userData.email}</p>
+                        )}
+                      </div>
+
+                      <MobileProfileLink
+                        to="/enquiries"
+                        onClick={handleEnquiriesClick}
+                        icon={
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                            />
+                          </svg>
+                        }
+                      >
+                        My Enquiries
+                      </MobileProfileLink>
+
+                      <MobileProfileLink
+                        to="/my-vehicles"
+                        onClick={handleMyVehiclesClick}
+                        icon={
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        }
+                      >
+                        My Vehicles
+                      </MobileProfileLink>
+
+                      <hr className="border-gray-200 my-2" />
+
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                          />
+                        </svg>
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -608,7 +703,7 @@ const BuySellNavbar = () => {
   );
 };
 
-// Enhanced Reusable Components
+// Reusable Components
 const NavLink = ({ to, onClick, children }) => (
   <Link
     to={to}

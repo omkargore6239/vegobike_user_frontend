@@ -1,6 +1,6 @@
 // src/components/ChatPanel.jsx
 import React, { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, ArrowLeft } from "lucide-react";
 
 const ChatPanel = ({
   chatId,
@@ -8,6 +8,7 @@ const ChatPanel = ({
   contactData,
   onTypingChange,
   getTypingState,
+  onBack, // Add onBack prop for mobile
 }) => {
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState([
@@ -34,7 +35,6 @@ const ChatPanel = ({
   ]);
   const messagesEndRef = useRef(null);
 
-  // Get typing states
   const isUserTyping = getTypingState(chatId, userId);
   const isContactTyping = getTypingState(chatId, 456);
 
@@ -70,7 +70,6 @@ const ChatPanel = ({
 
       setMessages((prev) => [...prev, newMsg]);
       setNewMessage("");
-
       onTypingChange(chatId, userId, false);
 
       setTimeout(() => {
@@ -139,23 +138,23 @@ const ChatPanel = ({
   };
 
   const TypingIndicator = () => (
-    <div className="flex justify-start mb-4">
-      <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
+    <div className="flex justify-start mb-3 sm:mb-4">
+      <div className="bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-bl-sm shadow-sm">
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">
+          <span className="text-xs sm:text-sm text-gray-600">
             {contactData.contactName} is typing
           </span>
           <div className="flex space-x-1">
             <div
-              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce"
               style={{ animationDelay: "0ms" }}
             ></div>
             <div
-              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce"
               style={{ animationDelay: "150ms" }}
             ></div>
             <div
-              className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+              className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce"
               style={{ animationDelay: "300ms" }}
             ></div>
           </div>
@@ -166,9 +165,9 @@ const ChatPanel = ({
 
   if (!contactData) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-50">
+      <div className="flex items-center justify-center h-full bg-gray-50 p-4">
         <div className="text-center">
-          <span className="text-gray-600">
+          <span className="text-sm sm:text-base text-gray-600">
             Select a chat to start messaging
           </span>
         </div>
@@ -178,32 +177,41 @@ const ChatPanel = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white px-6 py-4 border-b border-gray-200 flex-shrink-0">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
+      {/* Header - Mobile Responsive with Back Button */}
+      <div className="bg-white px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Mobile Back Button */}
+          <button
+            onClick={onBack}
+            className="lg:hidden p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={20} />
+          </button>
+
+          <div className="relative flex-shrink-0">
             <img
               src={contactData.avatar}
               alt={contactData.contactName}
-              className="w-12 h-12 rounded-full object-cover"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
             />
             {contactData.isOnline && (
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-white"></div>
             )}
             {(isUserTyping || isContactTyping) && (
-              <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-1.5">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-1 sm:p-1.5">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse"></div>
               </div>
             )}
           </div>
 
-          <div>
-            <h2 className="font-semibold text-lg text-gray-900">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-base sm:text-lg text-gray-900 truncate">
               {contactData.contactName}
             </h2>
-            <div className="flex items-center space-x-2 text-sm">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm">
               {isUserTyping ? (
-                <span className="text-green-500 italic font-medium">
+                <span className="text-green-500 italic font-medium truncate">
                   You are typing...
                 </span>
               ) : isContactTyping ? (
@@ -211,7 +219,7 @@ const ChatPanel = ({
                   <span className="text-blue-500 italic font-medium">
                     typing
                   </span>
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-0.5 sm:space-x-1">
                     <div
                       className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
                       style={{ animationDelay: "0ms" }}
@@ -228,15 +236,15 @@ const ChatPanel = ({
                 </div>
               ) : (
                 <>
-                  <span className="text-gray-600">
+                  <span className="text-gray-600 truncate max-w-[120px] sm:max-w-none">
                     {contactData.bikeInfo.title}
                   </span>
-                  <span className="text-gray-400">•</span>
-                  <span className="font-semibold text-green-600">
+                  <span className="text-gray-400 hidden sm:inline">•</span>
+                  <span className="font-semibold text-green-600 hidden sm:inline">
                     {contactData.bikeInfo.price}
                   </span>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-600">
+                  <span className="text-gray-400 hidden sm:inline">•</span>
+                  <span className="text-gray-600 hidden sm:inline">
                     {contactData.bikeInfo.km}
                   </span>
                 </>
@@ -246,8 +254,8 @@ const ChatPanel = ({
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+      {/* Messages Area - Mobile Responsive */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 min-h-0">
         {messages
           .filter((msg) => msg.chatId === chatId)
           .map((message, index) => {
@@ -258,15 +266,17 @@ const ChatPanel = ({
                 className={`flex ${isMine ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                  className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 sm:py-3 rounded-2xl ${
                     isMine
                       ? "bg-blue-500 text-white rounded-br-sm"
                       : "bg-white text-gray-800 shadow-sm rounded-bl-sm"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed">{message.message}</p>
+                  <p className="text-xs sm:text-sm leading-relaxed break-words">
+                    {message.message}
+                  </p>
                   <div
-                    className={`text-xs mt-2 ${
+                    className={`text-xs mt-1.5 sm:mt-2 ${
                       isMine ? "text-blue-100" : "text-gray-500"
                     } flex items-center justify-end space-x-1`}
                   >
@@ -286,9 +296,9 @@ const ChatPanel = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input - Keep Send Button, Remove Mic Button */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
-        <div className="flex items-center space-x-3">
+      {/* Message Input - Mobile Responsive */}
+      <div className="bg-white border-t border-gray-200 px-3 sm:px-4 py-2 sm:py-3 flex-shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <div className="flex-1 relative">
             <input
               type="text"
@@ -296,20 +306,18 @@ const ChatPanel = ({
               onChange={(e) => handleTypingChange(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message"
-              className="w-full px-4 py-3 bg-gray-100 rounded-full border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base bg-gray-100 rounded-full border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
           </div>
 
-          {/* Keep Send Button */}
           <button
             onClick={() => handleSendMessage()}
             disabled={!newMessage.trim()}
-            className="p-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="p-2 sm:p-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            aria-label="Send message"
           >
-            <Send size={20} />
+            <Send size={18} className="sm:w-5 sm:h-5" />
           </button>
-
-          {/* Removed Mic Button and Recording functionality */}
         </div>
       </div>
     </div>

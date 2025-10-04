@@ -3,10 +3,15 @@ import axios from "axios";
 import OwnerDetails from "./OwnerDetails";
 import BikeDetails from "./BikeDetails";
 import BikeImages from "./BikeImages";
+import Toast from "../../components/errorhandeling/Toast";
 
 const SellPage = () => {
   const [step, setStep] = useState(1);
   const [animating, setAnimating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [errors, setErrors] = useState({});
+  
   const [formData, setFormData] = useState({
     name: "",
     mobileNumber: "",
@@ -31,195 +36,241 @@ const SellPage = () => {
     rightPhoto: null,
   });
 
-  // Validate current step's required fields before proceeding
+  const showToast = (message, type = "error") => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
+
+  const validateField = (name, value) => {
+    let error = "";
+
+    switch (name) {
+      case "name":
+        if (!value.trim()) error = "Name is required";
+        else if (value.trim().length < 2) error = "Name must be at least 2 characters";
+        break;
+      case "mobileNumber":
+        if (!value.trim()) error = "Mobile number is required";
+        else if (!/^[6-9]\d{9}$/.test(value)) error = "Enter a valid 10-digit mobile number";
+        break;
+      case "alternativeMobileNumber":
+        if (value && !/^[6-9]\d{9}$/.test(value)) error = "Enter a valid 10-digit mobile number";
+        break;
+      case "email":
+        if (!value.trim()) error = "Email is required";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = "Enter a valid email address";
+        break;
+      case "address":
+        if (!value.trim()) error = "Address is required";
+        else if (value.trim().length < 10) error = "Please provide a complete address";
+        break;
+      case "city":
+        if (!value.trim()) error = "City is required";
+        break;
+      case "pincode":
+        if (!value.trim()) error = "Pincode is required";
+        else if (!/^\d{6}$/.test(value)) error = "Pincode must be 6 digits";
+        break;
+      case "bikeCategory":
+        if (!value) error = "Please select a bike category";
+        break;
+      case "bikeBrand":
+        if (!value) error = "Please select a bike brand";
+        break;
+      case "bikeModel":
+        if (!value.trim()) error = "Bike model is required";
+        break;
+      case "registrationNumber":
+        if (!value.trim()) error = "Registration number is required";
+        else if (value.trim().length < 6) error = "Enter a valid registration number";
+        break;
+      case "bikeColor":
+        if (!value.trim()) error = "Bike color is required";
+        break;
+      case "manufactureYear":
+        if (!value) error = "Please select manufacture year";
+        break;
+      case "numberOfOwners":
+        if (!value) error = "Please select number of owners";
+        break;
+      case "odometerReading":
+        if (!value) error = "Odometer reading is required";
+        else if (parseInt(value) < 0) error = "Odometer reading must be positive";
+        break;
+      case "sellingPrice":
+        if (!value) error = "Selling price is required";
+        else if (parseInt(value) <= 0) error = "Selling price must be greater than 0";
+        break;
+      case "bikeCondition":
+        if (!value) error = "Please select bike condition";
+        break;
+      default:
+        break;
+    }
+
+    return error;
+  };
+
   const validateStep = () => {
-    const errors = [];
+    const newErrors = {};
+    let fieldsToValidate = [];
 
     if (step === 1) {
-      // Owner Details validation
-      if (!formData.name?.trim()) errors.push("Owner name is required.");
-      if (!formData.mobileNumber?.trim()) errors.push("Mobile number is required.");
-      if (!formData.email?.trim()) errors.push("Email is required.");
-      if (!formData.address?.trim()) errors.push("Address is required.");
-      if (!formData.city?.trim()) errors.push("City is required.");
-      if (!formData.pincode?.trim()) errors.push("Pincode is required.");
-    }
-
-    if (step === 2) {
-      // Bike Details validation
-      if (!formData.bikeCategory?.trim()) errors.push("Bike category is required.");
-      if (!formData.bikeBrand?.trim()) errors.push("Bike brand is required.");
-      if (!formData.bikeModel?.trim()) errors.push("Bike model is required.");
-      if (!formData.registrationNumber?.trim()) errors.push("Registration number is required.");
-      if (!formData.bikeColor?.trim()) errors.push("Bike color is required.");
-      if (!formData.manufactureYear?.trim()) errors.push("Manufacture year is required.");
-      if (!formData.numberOfOwners?.trim()) errors.push("Number of owners is required.");
-      if (!formData.odometerReading?.trim()) errors.push("Odometer reading is required.");
-      if (!formData.sellingPrice?.trim()) errors.push("Selling price is required.");
-      if (!formData.bikeCondition?.trim()) errors.push("Bike condition is required.");
-    }
-
-    if (step === 3) {
-      // Images validation
+      fieldsToValidate = ["name", "mobileNumber", "email", "address", "city", "pincode"];
+    } else if (step === 2) {
+      fieldsToValidate = [
+        "bikeCategory",
+        "bikeBrand",
+        "bikeModel",
+        "registrationNumber",
+        "bikeColor",
+        "manufactureYear",
+        "numberOfOwners",
+        "odometerReading",
+        "sellingPrice",
+        "bikeCondition",
+      ];
+    } else if (step === 3) {
       const hasImage = formData.frontPhoto || formData.backPhoto || formData.leftPhoto || formData.rightPhoto;
       if (!hasImage) {
-        errors.push("At least one bike image must be uploaded.");
+        showToast("Please upload at least one bike image", "warning");
+        return false;
       }
 
-      // Validate each uploaded image
-      const frontError = validateImage(formData.frontPhoto);
-      if (frontError) errors.push(frontError);
-      const backError = validateImage(formData.backPhoto);
-      if (backError) errors.push(backError);
-      const leftError = validateImage(formData.leftPhoto);
-      if (leftError) errors.push(leftError);
-      const rightError = validateImage(formData.rightPhoto);
-      if (rightError) errors.push(rightError);
+      const images = [
+        { file: formData.frontPhoto, name: "Front Photo" },
+        { file: formData.backPhoto, name: "Back Photo" },
+        { file: formData.leftPhoto, name: "Left Photo" },
+        { file: formData.rightPhoto, name: "Right Photo" },
+      ];
+
+      for (const img of images) {
+        if (img.file) {
+          const error = validateImage(img.file);
+          if (error) {
+            showToast(`${img.name}: ${error}`, "error");
+            return false;
+          }
+        }
+      }
+      return true;
     }
 
-    return errors;
+    fieldsToValidate.forEach((field) => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = Object.values(newErrors)[0];
+      showToast(firstError, "error");
+      return false;
+    }
+
+    return true;
   };
 
   const nextStep = () => {
-    const errors = validateStep();
-    if (errors.length > 0) {
-      alert(`❌ Please fix the following errors before continuing:\n\n${errors.join("\n")}`);
+    if (!validateStep()) {
       return;
     }
+    
+    setErrors({});
     setAnimating(true);
-    setStep(step + 1);
-    setTimeout(() => setAnimating(false), 300);
+    setTimeout(() => {
+      setStep(step + 1);
+      setAnimating(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 300);
   };
 
   const prevStep = () => {
+    setErrors({});
     setAnimating(true);
-    setStep(step - 1);
-    setTimeout(() => setAnimating(false), 300);
+    setTimeout(() => {
+      setStep(step - 1);
+      setAnimating(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 300);
   };
 
-  // Enhanced image validation
   const validateImage = (file) => {
     if (!file) return null;
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/bmp",
-    ];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp"];
+    const maxSize = 5 * 1024 * 1024;
 
     if (!allowedTypes.includes(file.type)) {
-      return `Invalid file type for ${file.name}. Please upload JPEG, PNG, GIF, or BMP images only.`;
+      return "Please upload only JPEG, PNG, GIF, or BMP images";
     }
 
     if (file.size > maxSize) {
-      return `File ${file.name} is too large. Maximum size allowed is 5MB.`;
+      return "Image size must be less than 5MB";
     }
 
     return null;
   };
 
-  // Full form validation for final submit
-  const validateForm = () => {
-    const errors = [];
-
-    // Required field validation
-    if (!formData.name?.trim()) errors.push("Owner name is required");
-    if (!formData.mobileNumber?.trim())
-      errors.push("Mobile number is required");
-    if (!formData.email?.trim()) errors.push("Email is required");
-    if (!formData.address?.trim()) errors.push("Address is required");
-    if (!formData.city?.trim()) errors.push("City is required");
-    if (!formData.pincode?.trim()) errors.push("Pincode is required");
-
-    if (!formData.bikeCategory?.trim())
-      errors.push("Bike category is required");
-    if (!formData.bikeBrand?.trim()) errors.push("Bike brand is required");
-    if (!formData.bikeModel?.trim()) errors.push("Bike model is required");
-    if (!formData.registrationNumber?.trim())
-      errors.push("Registration number is required");
-    if (!formData.bikeColor?.trim()) errors.push("Bike color is required");
-    if (!formData.manufactureYear?.trim())
-      errors.push("Manufacture year is required");
-    if (!formData.numberOfOwners?.trim())
-      errors.push("Number of owners is required");
-    if (!formData.odometerReading?.trim())
-      errors.push("Odometer reading is required");
-    if (!formData.sellingPrice?.trim())
-      errors.push("Selling price is required");
-    if (!formData.bikeCondition?.trim())
-      errors.push("Bike condition is required");
-
-    // Image validation
-    const frontImageError = validateImage(formData.frontPhoto);
-    if (frontImageError) errors.push(frontImageError);
-
-    const backImageError = validateImage(formData.backPhoto);
-    if (backImageError) errors.push(backImageError);
-
-    const leftImageError = validateImage(formData.leftPhoto);
-    if (leftImageError) errors.push(leftImageError);
-
-    const rightImageError = validateImage(formData.rightPhoto);
-    if (rightImageError) errors.push(rightImageError);
-
-    return errors;
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
   };
 
-  // Updated submitForm with proper model ID handling and environment variable
+  const handleFieldBlur = (e) => {
+    const { name, value } = e.target;
+    const error = validateField(name, value);
+    if (error) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+
   const submitForm = async () => {
+    if (!validateStep()) {
+      return;
+    }
+
     try {
-      // 1️⃣ Validate form
-      const validationErrors = validateForm();
-      if (validationErrors.length > 0) {
-        alert(
-          `❌ Please fix the following errors:\n\n${validationErrors.join(
-            "\n"
-          )}`
-        );
-        return;
-      }
-
+      setIsSubmitting(true);
       const formDataToSend = new FormData();
-
-      // 2️⃣ Use the actual IDs from form data with proper model ID handling
       const categoryId = parseInt(formData.bikeCategory) || 1;
       const brandId = parseInt(formData.bikeBrand) || 1;
-
-      // 🔥 FIX: Get actual model ID - formData.bikeModel now contains the model ID from API
       const modelId = parseInt(formData.bikeModel) || 1;
-      const yearId =
-        parseInt(formData.manufactureYear) || new Date().getFullYear();
+      const yearId = parseInt(formData.manufactureYear) || new Date().getFullYear();
 
-      console.log("🔍 ID Mappings:", {
-        categoryId: categoryId,
-        brandId: brandId,
-        modelId: modelId,
-        yearId: yearId,
-        originalModelValue: formData.bikeModel,
-      });
-
-      // 3️⃣ Create request DTO using actual API data
       const requestDTO = {
         sellerDetail: {
           name: formData.name.trim(),
           contactNumber: formData.mobileNumber.trim(),
-          alternateContactNumber:
-            formData.alternativeMobileNumber?.trim() || "",
+          alternateContactNumber: formData.alternativeMobileNumber?.trim() || "",
           email: formData.email.trim(),
           address: formData.address.trim(),
           city: formData.city.trim(),
           pincode: formData.pincode.trim(),
         },
-
         bikeSale: {
-          // ✅ Use actual IDs from API responses
           categoryId: categoryId,
           brandId: brandId,
           modelId: modelId,
           yearId: yearId,
-
           color: formData.bikeColor.trim(),
           registrationNumber: formData.registrationNumber.trim().toUpperCase(),
           numberOfOwner: parseInt(formData.numberOfOwners) || 1,
@@ -227,182 +278,106 @@ const SellPage = () => {
           price: parseFloat(formData.sellingPrice) || 0,
           sellingPrice: parseFloat(formData.sellingPrice) || 0,
           bikeCondition: formData.bikeCondition.trim(),
-
-          // Duplicate required fields
           name: formData.name.trim(),
           email: formData.email.trim(),
           contactNumber: formData.mobileNumber.trim(),
-          alternateContactNumber:
-            formData.alternativeMobileNumber?.trim() || "",
+          alternateContactNumber: formData.alternativeMobileNumber?.trim() || "",
           city: formData.city.trim(),
           pincode: formData.pincode.trim(),
           address: formData.address.trim(),
         },
-
         bikeImages: {},
       };
 
-      // 4️⃣ Append JSON data
       formDataToSend.append(
         "requestDTO",
-        new Blob([JSON.stringify(requestDTO)], {
-          type: "application/json",
-        })
+        new Blob([JSON.stringify(requestDTO)], { type: "application/json" })
       );
 
-      // 5️⃣ Append image files with validation
       if (formData.frontPhoto) {
-        console.log(
-          `📷 Adding front image: ${formData.frontPhoto.name} (${formData.frontPhoto.type}, ${formData.frontPhoto.size} bytes)`
-        );
-        formDataToSend.append(
-          "front_image",
-          formData.frontPhoto,
-          formData.frontPhoto.name
-        );
+        formDataToSend.append("front_image", formData.frontPhoto, formData.frontPhoto.name);
       }
-
       if (formData.backPhoto) {
-        console.log(
-          `📷 Adding back image: ${formData.backPhoto.name} (${formData.backPhoto.type}, ${formData.backPhoto.size} bytes)`
-        );
-        formDataToSend.append(
-          "back_image",
-          formData.backPhoto,
-          formData.backPhoto.name
-        );
+        formDataToSend.append("back_image", formData.backPhoto, formData.backPhoto.name);
       }
-
       if (formData.leftPhoto) {
-        console.log(
-          `📷 Adding left image: ${formData.leftPhoto.name} (${formData.leftPhoto.type}, ${formData.leftPhoto.size} bytes)`
-        );
-        formDataToSend.append(
-          "left_image",
-          formData.leftPhoto,
-          formData.leftPhoto.name
-        );
+        formDataToSend.append("left_image", formData.leftPhoto, formData.leftPhoto.name);
       }
-
       if (formData.rightPhoto) {
-        console.log(
-          `📷 Adding right image: ${formData.rightPhoto.name} (${formData.rightPhoto.type}, ${formData.rightPhoto.size} bytes)`
-        );
-        formDataToSend.append(
-          "right_image",
-          formData.rightPhoto,
-          formData.rightPhoto.name
-        );
+        formDataToSend.append("right_image", formData.rightPhoto, formData.rightPhoto.name);
       }
 
-      // 6️⃣ Debug logging
-      console.log("📤 Final request structure:", requestDTO);
-      console.log("📦 FormData contents:");
-      for (let [key, value] of formDataToSend.entries()) {
-        if (value instanceof File) {
-          console.log(
-            `  ${key}: ${value.name} (${value.type}, ${value.size} bytes)`
-          );
-        } else {
-          console.log(`  ${key}: JSON Data`);
-        }
-      }
-
-      // 7️⃣ Send request using environment variable
       const response = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/bike-sales/sell`,
         formDataToSend,
-        {
-          timeout: 60000, // Increased timeout for image upload
-          // Don't set Content-Type - let browser handle multipart boundary
-        }
+        { timeout: 60000 }
       );
 
-      // 8️⃣ Success handling
-      console.log("✅ Success Response:", response.data);
-
       if (response.data.success) {
-        alert(`✅ Bike listed successfully! 
-
-Correlation ID: ${response.data.correlationId}
-Message: ${response.data.message}
-Timestamp: ${response.data.timestamp}`);
-
-        // Optional: Reset form or redirect to success page
-        // setFormData(initialState);
-        // window.location.href = '/success';
+        showToast("🎉 Bike listed successfully! You'll be contacted soon.", "success");
+        
+        setTimeout(() => {
+          setFormData({
+            name: "",
+            mobileNumber: "",
+            alternativeMobileNumber: "",
+            email: "",
+            address: "",
+            city: "",
+            pincode: "",
+            bikeCategory: "",
+            bikeBrand: "",
+            bikeModel: "",
+            registrationNumber: "",
+            bikeColor: "",
+            manufactureYear: "",
+            numberOfOwners: "",
+            odometerReading: "",
+            sellingPrice: "",
+            bikeCondition: "",
+            frontPhoto: null,
+            backPhoto: null,
+            leftPhoto: null,
+            rightPhoto: null,
+          });
+          setStep(1);
+        }, 2000);
       } else {
-        // Handle success=false case
-        alert(`⚠️ Submission completed with warnings:
-
-${response.data.message}
-
-Correlation ID: ${response.data.correlationId}`);
+        showToast(response.data.message || "Submission completed with warnings", "warning");
       }
     } catch (error) {
-      console.error("❌ Full error details:", error);
+      console.error("❌ Submission error:", error);
 
       if (error.response) {
         const { status, data } = error.response;
-        console.error("❌ Server response:", data);
-
-        let errorMessage =
-          "An error occurred while submitting your bike listing.";
+        let errorMessage = "An error occurred while submitting your listing";
 
         if (data?.message) {
           errorMessage = data.message;
         }
 
-        // Handle specific errors
         if (status === 500) {
-          if (
-            errorMessage.toLowerCase().includes("invalid image") ||
-            errorMessage.toLowerCase().includes("invalid ima") ||
-            errorMessage.toLowerCase().includes("image")
-          ) {
-            alert(`❌ Image Validation Error
-
-There was a problem with one or more uploaded images:
-${errorMessage}
-
-Please ensure:
-• Images are in JPEG, PNG, GIF, or BMP format
-• Each image is under 5MB in size
-• Images are not corrupted
-• At least one image is uploaded
-
-Correlation ID: ${data.correlationId || "N/A"}`);
-          } else if (errorMessage.includes("brandId is required")) {
-            alert(`❌ Brand Selection Error
-
-Please make sure you have selected a valid bike brand from the dropdown menu.
-
-Current selection: ${formData.bikeBrand}
-
-Correlation ID: ${data.correlationId || "N/A"}`);
-          } else if (errorMessage.includes("categoryId is required")) {
-            alert(`❌ Category Selection Error
-
-Please make sure you have selected a valid bike category from the dropdown menu.
-
-Current selection: ${formData.bikeCategory}
-
-Correlation ID: ${data.correlationId || "N/A"}`);
+          if (errorMessage.toLowerCase().includes("image")) {
+            showToast("Image validation failed. Please check your images and try again.", "error");
+          } else if (errorMessage.toLowerCase().includes("brand")) {
+            showToast("Please select a valid bike brand", "error");
+          } else if (errorMessage.toLowerCase().includes("category")) {
+            showToast("Please select a valid bike category", "error");
           } else {
-            alert(`❌ Server Error (${status}): ${errorMessage}
-
-Correlation ID: ${data.correlationId || "N/A"}`);
+            showToast(errorMessage, "error");
           }
+        } else if (status === 400) {
+          showToast("Invalid form data. Please check all fields.", "error");
         } else {
-          alert(`❌ Error (${status}): ${errorMessage}`);
+          showToast(errorMessage, "error");
         }
       } else if (error.request) {
-        alert(
-          "❌ Network Error\n\nUnable to connect to server. Please check your internet connection and try again."
-        );
+        showToast("Network error. Please check your internet connection.", "error");
       } else {
-        alert(`❌ Request Error: ${error.message}`);
+        showToast("An unexpected error occurred. Please try again.", "error");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -412,7 +387,9 @@ Correlation ID: ${data.correlationId || "N/A"}`);
         return (
           <OwnerDetails
             formData={formData}
-            setFormData={setFormData}
+            onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
             nextStep={nextStep}
           />
         );
@@ -420,7 +397,9 @@ Correlation ID: ${data.correlationId || "N/A"}`);
         return (
           <BikeDetails
             formData={formData}
-            setFormData={setFormData}
+            onChange={handleFieldChange}
+            onBlur={handleFieldBlur}
+            errors={errors}
             nextStep={nextStep}
             prevStep={prevStep}
           />
@@ -432,6 +411,7 @@ Correlation ID: ${data.correlationId || "N/A"}`);
             setFormData={setFormData}
             prevStep={prevStep}
             submitForm={submitForm}
+            isSubmitting={isSubmitting}
           />
         );
       default:
@@ -440,80 +420,135 @@ Correlation ID: ${data.correlationId || "N/A"}`);
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen p-6">
-      <h1 className="text-3xl font-bold mb-8">Sell Your Bike</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
-      {/* Step Progress Bar */}
-      <div className="w-full mb-12">
-        <div className="flex justify-between relative mb-2">
-          <div className="absolute top-4 left-0 h-1 bg-gray-300 w-full -z-10"></div>
-          <div
-            className="absolute top-4 left-0 h-1 bg-blue-500 -z-10 transition-all duration-500 ease-in-out"
-            style={{ width: `${(step - 1) * 50}%` }}
-          ></div>
-          {[1, 2, 3].map((stepNumber) => (
-            <div
-              key={stepNumber}
-              className={`flex flex-col items-center ${
-                animating && stepNumber === step ? "animate-pulse" : ""
-              }`}
-            >
-              <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300 ${
-                  stepNumber === step
-                    ? "border-blue-500 bg-blue-100 text-blue-500"
-                    : stepNumber < step
-                    ? "border-blue-500 bg-blue-500 text-white"
-                    : "border-gray-300 bg-white text-gray-400"
-                }`}
-              >
-                {stepNumber < step ? (
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  stepNumber
-                )}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-16 px-4 shadow-2xl">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center">
+            <div className="inline-block mb-4">
+              <div className="flex items-center justify-center w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm">
+                <span className="text-5xl">🏍️</span>
               </div>
-              <span
-                className={`mt-2 text-sm ${
-                  stepNumber === step
-                    ? "font-semibold text-blue-500"
-                    : stepNumber < step
-                    ? "font-medium text-blue-500"
-                    : "text-gray-500"
-                }`}
-              >
-                {stepNumber === 1
-                  ? "Owner Details"
-                  : stepNumber === 2
-                  ? "Bike Details"
-                  : "Upload Images"}
-              </span>
             </div>
-          ))}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-4 tracking-tight">
+              Sell Your Bike Today
+            </h1>
+            <p className="text-lg sm:text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
+              Complete the form in simple steps to list your bike for sale
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Step Content */}
-      <div
-        className={`w-full transition-all duration-300 ${
-          animating ? "opacity-50 scale-95" : "opacity-100 scale-100"
-        }`}
-      >
-        {renderStepContent()}
-      </div>
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-10 mb-8 border border-gray-100">
+            <div className="relative">
+              <div className="absolute top-8 left-0 w-full h-2 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full -z-10" />
+              <div
+                className="absolute top-8 left-0 h-2 rounded-full transition-all duration-700 ease-out -z-10 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"
+                style={{ width: `${((step - 1) / 2) * 100}%` }}
+              />
 
-      <div className="mt-8 text-center text-gray-500">
-        <p>Step {step} of 3</p>
+              <div className="flex justify-between items-start relative">
+                {[
+                  { number: 1, title: "Owner Details", icon: "👤", desc: "Personal Info" },
+                  { number: 2, title: "Bike Details", icon: "🏍️", desc: "Vehicle Info" },
+                  { number: 3, title: "Upload Images", icon: "📸", desc: "Add Photos" },
+                ].map((stepItem) => (
+                  <div key={stepItem.number} className="flex flex-col items-center w-1/3 relative">
+                    <div
+                      className={`
+                        w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-2xl sm:text-3xl
+                        font-bold transition-all duration-500 mb-3 relative z-10 shadow-lg
+                        ${
+                          stepItem.number === step
+                            ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white scale-110 ring-4 ring-blue-200"
+                            : stepItem.number < step
+                            ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white scale-105"
+                            : "bg-white border-4 border-gray-300 text-gray-400"
+                        }
+                      `}
+                    >
+                      {stepItem.number < step ? (
+                        <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        stepItem.icon
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <span
+                        className={`
+                          block text-sm sm:text-base font-bold transition-colors duration-300 mb-1
+                          ${
+                            stepItem.number === step
+                              ? "text-blue-600"
+                              : stepItem.number < step
+                              ? "text-green-600"
+                              : "text-gray-500"
+                          }
+                        `}
+                      >
+                        {stepItem.title}
+                      </span>
+                      <span className="text-xs text-gray-500 hidden sm:block">{stepItem.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-3 rounded-full">
+                <span className="text-sm font-semibold text-gray-600 mr-2">Progress:</span>
+                <span className="text-lg font-bold text-blue-600">{Math.round(((step) / 3) * 100)}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`
+              bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100
+              transition-all duration-500 transform
+              ${animating ? "opacity-0 scale-98" : "opacity-100 scale-100"}
+            `}
+          >
+            <div className="p-6 sm:p-10 lg:p-14">
+              {renderStepContent()}
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center bg-white px-6 py-3 rounded-full shadow-lg">
+              <span className="text-sm text-gray-600 mr-2">Step</span>
+              <span className="text-xl font-bold text-blue-600">{step}</span>
+              <span className="text-sm text-gray-600 mx-1">of</span>
+              <span className="text-xl font-bold text-gray-800">3</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-6 py-3 rounded-full shadow-lg">
+              <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>Need help? Contact support</span>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg shadow-md">
+            <div className="flex items-start">
+              <span className="text-2xl mr-3">ℹ️</span>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 mb-1">Required Fields</p>
+                <p className="text-xs text-amber-800">
+                  Fields marked with <span className="text-red-600 font-bold text-base">*</span> are mandatory and must be filled to proceed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

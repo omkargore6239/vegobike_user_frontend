@@ -717,7 +717,7 @@ function App() {
                         {/* SERVICING ROUTES */}
                         <Route path="/servicing" element={<ServicingHome />} />
                         <Route path="/servicing/home" element={<HomePage />} />
-                        <Route path="/servicing/services" element={<Services />} />
+                        <Route path="/services" element={<Services />} />
                         <Route
                           path="/servicing/profile"
                           element={
@@ -737,11 +737,11 @@ function App() {
                           }
                         />
                         <Route
-                          path="/servicing/service-packages"
+                          path="/service-packages"
                           element={<ServicePackagesPage />}
                         />
                         <Route
-                          path="/servicing/checkout"
+                          path="/checkout"
                           element={
                             <ProtectedRoute requireAuth={true}>
                               <CheckoutPage />

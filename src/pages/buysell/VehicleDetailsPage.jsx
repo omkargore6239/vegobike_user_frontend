@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Phone, MessageSquare, FileText, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { STORAGE_KEYS } from "../../utils/constants";
+import { redirectToLogin } from "../../utils/apiClient";
 
 const VehicleDetailsPage = () => {
   const location = useLocation();
@@ -10,6 +11,13 @@ const VehicleDetailsPage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [isSubmittingEnquiry, setIsSubmittingEnquiry] = useState(false);
   const [enquiryStatus, setEnquiryStatus] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    setIsLoggedIn(!!token);
+  }, []);
 
   if (!vehicle) {
     return (
@@ -32,73 +40,37 @@ const VehicleDetailsPage = () => {
     );
   }
 
-  // Robust data extraction with fallbacks
-  const bikeSale = vehicle.bikeSale || vehicle.bike || vehicle;
-  const images = vehicle.images || bikeSale.images || {};
+  // Data extraction - vehicle object already contains images property from homepage
+  const vehicleId = vehicle.id || "Unknown";
+  const vehicleTitle = vehicle.title || "Unknown Vehicle";
+  const formattedPrice = vehicle.price || "Price not available";
+  const vehicleLocation = vehicle.location || null;
 
-  // Build image URLs with proper base URL
-  const baseImageUrl = `${import.meta.env.VITE_BASE_URL}/uploads/`;
+  // Extract seller information
+  const sellerName = vehicle.name || vehicle.sellerName || null;
+  const contactNumber = vehicle.customerNumber || vehicle.contactNumber || null;
+  const sellerEmail = vehicle.email || null;
 
-  const vehicleImages = [
-    images.frontImages ? `${baseImageUrl}${images.frontImages}` : "/bike.jpg",
-    images.backImages ? `${baseImageUrl}${images.backImages}` : "/bike.jpg",
-    images.leftImages ? `${baseImageUrl}${images.leftImages}` : "/bike.jpg",
-    images.rightImages ? `${baseImageUrl}${images.rightImages}` : "/bike.jpg",
-  ];
-
-  // Data extraction with comprehensive fallbacks
-  const vehicleId = bikeSale?.id || vehicle?.id || "Unknown";
-  const sellerName =
-    bikeSale?.name ||
-    bikeSale?.sellerName ||
-    vehicle?.sellerName ||
-    vehicle?.name ||
-    null;
-  const contactNumber =
-    bikeSale?.contactNumber ||
-    bikeSale?.phone ||
-    vehicle?.contactNumber ||
-    vehicle?.phone ||
-    null;
-  const sellerEmail =
-    bikeSale?.email ||
-    bikeSale?.sellerEmail ||
-    vehicle?.email ||
-    vehicle?.sellerEmail ||
-    null;
-
-  // Enhanced vehicle title creation
-  const getBrandName = (brandId) => {
-    return brandId ? `Brand ${brandId}` : "Unknown Brand";
-  };
-
-  const getModelName = (modelId) => {
-    return modelId ? `Model ${modelId}` : "Unknown Model";
-  };
-
-  const vehicleTitle = `${getBrandName(bikeSale?.brandId)} ${getModelName(
-    bikeSale?.modelId
-  )}`;
-  const formattedPrice = bikeSale?.price
-    ? `₹${bikeSale.price.toLocaleString()}`
-    : "Price not available";
-
-  const vehicleLocation = (() => {
-    const city = bikeSale?.city || "";
-    const pincode = bikeSale?.pincode || "";
-    const location = `${city}${city && pincode ? ", " : ""}${pincode}`.trim();
-    return location || null;
-  })();
+  // Use the images object that was already constructed in the homepage
+  // The homepage already has: vehicle.images = { front, back, left, right }
+  const vehicleImages = vehicle.images 
+    ? [
+        vehicle.images.front || "/bike.jpg",
+        vehicle.images.back || "/bike.jpg",
+        vehicle.images.left || "/bike.jpg",
+        vehicle.images.right || "/bike.jpg",
+      ]
+    : [vehicle.image || "/bike.jpg", "/bike.jpg", "/bike.jpg", "/bike.jpg"];
 
   // Documents with enhanced status checking
   const documents = [
     {
       name: "RC BOOK",
-      status: bikeSale?.isDocument === true ? "Available" : "Not Available",
+      status: vehicle.isDocument === true ? "Available" : "Not Available",
       icon: (
         <FileText
           className={
-            bikeSale?.isDocument === true ? "text-green-600" : "text-red-600"
+            vehicle.isDocument === true ? "text-green-600" : "text-red-600"
           }
           size={16}
         />
@@ -106,23 +78,21 @@ const VehicleDetailsPage = () => {
     },
     {
       name: "PUC",
-      status: bikeSale?.isPuc === true ? "Available" : "Not Available",
+      status: vehicle.isPuc === true ? "Available" : "Not Available",
       icon: (
         <FileText
-          className={
-            bikeSale?.isPuc === true ? "text-green-600" : "text-red-600"
-          }
+          className={vehicle.isPuc === true ? "text-green-600" : "text-red-600"}
           size={16}
         />
       ),
     },
     {
       name: "Insurance",
-      status: bikeSale?.isInsurance === true ? "Available" : "Not Available",
+      status: vehicle.isInsurance === true ? "Available" : "Not Available",
       icon: (
         <FileText
           className={
-            bikeSale?.isInsurance === true ? "text-green-600" : "text-red-600"
+            vehicle.isInsurance === true ? "text-green-600" : "text-red-600"
           }
           size={16}
         />
@@ -130,12 +100,19 @@ const VehicleDetailsPage = () => {
     },
   ];
 
-  // Enhanced Call Seller functionality
+  // Enhanced Call Seller functionality with Login Check
   const handleCallSeller = async () => {
+    if (!isLoggedIn) {
+      redirectToLogin("Please login to contact the seller");
+      return;
+    }
+
     setIsSubmittingEnquiry(true);
     setEnquiryStatus(null);
 
     try {
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+
       const enquiryData = {
         bikeId: vehicleId,
         customerName: "Prospective Buyer",
@@ -144,7 +121,7 @@ const VehicleDetailsPage = () => {
         enquiryType: "CALL_REQUEST",
         message: `Interested in ${vehicleTitle} - ${formattedPrice}`,
         bikeTitle: vehicleTitle,
-        bikePrice: bikeSale?.price || 0,
+        bikePrice: vehicle.priceValue || 0,
         sellerName: sellerName || "Unknown",
         sellerPhone: contactNumber || "Unknown",
         sellerEmail: sellerEmail || "Unknown",
@@ -156,6 +133,7 @@ const VehicleDetailsPage = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(enquiryData),
         }
@@ -180,8 +158,13 @@ const VehicleDetailsPage = () => {
     }
   };
 
-  // Enhanced Text Seller functionality
+  // Enhanced Text Seller functionality with Login Check
   const handleTextSeller = () => {
+    if (!isLoggedIn) {
+      redirectToLogin("Please login to chat with the seller");
+      return;
+    }
+
     const chatId = vehicleId;
     const userId = 123;
 
@@ -196,8 +179,7 @@ const VehicleDetailsPage = () => {
   };
 
   // Check if seller information is available
-  const hasSellerInfo =
-    sellerName || contactNumber || sellerEmail || vehicleLocation;
+  const hasSellerInfo = sellerName || contactNumber || sellerEmail || vehicleLocation;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -213,14 +195,14 @@ const VehicleDetailsPage = () => {
           <h1 className="text-lg font-semibold truncate mx-4">
             Vehicle Details
           </h1>
-          <div className="w-8"></div> {/* Spacer for alignment */}
+          <div className="w-8"></div>
         </div>
       </div>
 
-      {/* Main Container - Mobile First Responsive */}
+      {/* Main Container */}
       <div className="container mx-auto px-4 py-4 sm:py-6 lg:py-8 max-w-6xl">
         <div className="bg-white rounded-lg sm:rounded-xl overflow-hidden shadow-lg sm:shadow-xl border border-gray-200">
-          {/* Status Messages - Mobile Optimized */}
+          {/* Status Messages */}
           {enquiryStatus && (
             <div
               className={`p-3 sm:p-4 mx-4 mt-4 sm:mx-6 sm:mt-6 rounded-lg text-sm sm:text-base ${
@@ -235,23 +217,24 @@ const VehicleDetailsPage = () => {
             </div>
           )}
 
-          {/* Main Image Section - Mobile Optimized */}
+          {/* Main Image Section */}
           <div className="relative">
             <img
               src={vehicleImages[activeImage]}
               alt={vehicleTitle}
               className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover sm:object-contain bg-gray-100"
               onError={(e) => {
+                console.error("Image load error:", e.target.src);
                 e.target.src = "/bike.jpg";
               }}
             />
-            {/* Image Counter - Mobile Friendly */}
+            {/* Image Counter */}
             <div className="absolute top-2 sm:top-4 right-2 sm:right-4 bg-black bg-opacity-70 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
               {activeImage + 1} / {vehicleImages.length}
             </div>
           </div>
 
-          {/* Thumbnail Gallery - Mobile Responsive Grid */}
+          {/* Thumbnail Gallery */}
           <div className="grid grid-cols-4 gap-1 sm:gap-2 p-2 sm:p-3 bg-gray-50">
             {vehicleImages.map((img, index) => (
               <div
@@ -275,9 +258,9 @@ const VehicleDetailsPage = () => {
             ))}
           </div>
 
-          {/* Vehicle Details Section - Mobile First Design */}
+          {/* Vehicle Details Section */}
           <div className="p-4 sm:p-6 lg:p-8">
-            {/* Header Section - Mobile Optimized */}
+            {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div className="flex-1">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 leading-tight">
@@ -288,11 +271,13 @@ const VehicleDetailsPage = () => {
                 </p>
               </div>
               <div className="bg-blue-100 rounded-lg px-3 py-2 self-start sm:self-auto">
-                <span className="text-blue-800 font-medium text-sm">Bike</span>
+                <span className="text-blue-800 font-medium text-sm">
+                  {vehicle.type?.charAt(0).toUpperCase() + vehicle.type?.slice(1) || "Bike"}
+                </span>
               </div>
             </div>
 
-            {/* Location - Mobile Friendly */}
+            {/* Location */}
             {vehicleLocation && (
               <div className="flex items-center text-gray-600 mb-4 sm:mb-6">
                 <svg
@@ -312,35 +297,53 @@ const VehicleDetailsPage = () => {
               </div>
             )}
 
-            {/* Contact Buttons - Mobile First */}
+            {/* Contact Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6">
               <button
                 onClick={handleCallSeller}
-                disabled={isSubmittingEnquiry}
+                disabled={isSubmittingEnquiry || !isLoggedIn}
                 className={`flex-1 flex items-center justify-center gap-2 ${
-                  isSubmittingEnquiry
+                  isSubmittingEnquiry || !isLoggedIn
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700 active:bg-green-800"
                 } text-white py-3 sm:py-3.5 rounded-lg font-medium transition-colors duration-200 text-sm sm:text-base`}
+                title={!isLoggedIn ? "Please login to call seller" : ""}
               >
                 <Phone size={16} className="sm:w-5 sm:h-5" />
                 <span>
-                  {isSubmittingEnquiry ? "Submitting..." : "Call Seller"}
+                  {isSubmittingEnquiry
+                    ? "Submitting..."
+                    : !isLoggedIn
+                    ? "Call Seller (Login Required)"
+                    : "Call Seller"}
                 </span>
               </button>
 
               <button
                 onClick={handleTextSeller}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 sm:py-3.5 rounded-lg font-medium transition-colors duration-200 text-sm sm:text-base"
+                disabled={!isLoggedIn}
+                className={`flex-1 flex items-center justify-center gap-2 ${
+                  !isLoggedIn
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
+                } text-white py-3 sm:py-3.5 rounded-lg font-medium transition-colors duration-200 text-sm sm:text-base`}
+                title={!isLoggedIn ? "Please login to text seller" : ""}
               >
                 <MessageSquare size={16} className="sm:w-5 sm:h-5" />
-                <span>Text Seller</span>
+                <span>
+                  {!isLoggedIn ? "Text Seller (Login Required)" : "Text Seller"}
+                </span>
               </button>
             </div>
 
-            {/* Information Box - Mobile Optimized */}
+            {/* Information Box */}
             <div className="bg-blue-50 p-3 sm:p-4 rounded-lg mb-4 sm:mb-6 border-l-4 border-blue-400">
               <div className="text-blue-800 space-y-2">
+                {!isLoggedIn && (
+                  <p className="text-xs sm:text-sm font-semibold">
+                    🔒 Please login to contact the seller
+                  </p>
+                )}
                 <p className="text-xs sm:text-sm">
                   <strong>📞 Call Seller:</strong> Submit your interest and the
                   seller will contact you directly.
@@ -352,7 +355,7 @@ const VehicleDetailsPage = () => {
               </div>
             </div>
 
-            {/* Seller Information - Mobile Responsive */}
+            {/* Seller Information */}
             {hasSellerInfo && (
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg mb-4 sm:mb-6">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
@@ -401,39 +404,35 @@ const VehicleDetailsPage = () => {
               </div>
             )}
 
-            {/* Vehicle Details Grid - Mobile First Responsive */}
+            {/* Vehicle Details Grid */}
             <div className="mb-6 sm:mb-8">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 pb-2 border-b border-gray-200">
                 Vehicle Details
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {[
-                  { label: "Brand", value: getBrandName(bikeSale?.brandId) },
-                  { label: "Model", value: getModelName(bikeSale?.modelId) },
-                  { label: "Color", value: bikeSale?.color || "Not specified" },
+                  { label: "Brand", value: vehicle.brand || "Unknown" },
+                  { label: "Model", value: vehicle.model || "Unknown" },
+                  { label: "Color", value: vehicle.color || "Not specified" },
                   {
                     label: "Registration No.",
-                    value: bikeSale?.registrationNumber || "Not provided",
+                    value: vehicle.registrationNumber || vehicle.registrationNo || "Not provided",
                   },
                   {
                     label: "Registration Year",
-                    value: bikeSale?.yearId || "Not specified",
+                    value: vehicle.registrationYear || "Not specified",
                   },
                   {
                     label: "KM Driven",
-                    value: bikeSale?.kmsDriven
-                      ? `${bikeSale.kmsDriven.toLocaleString()} km`
-                      : "Not specified",
+                    value: vehicle.kmDriven || "Not specified",
                   },
                   {
                     label: "Condition",
-                    value: bikeSale?.bikeCondition || "Not specified",
+                    value: vehicle.bikeCondition || "Not specified",
                   },
                   {
                     label: "No. of Owners",
-                    value: bikeSale?.numberOfOwner
-                      ? `${bikeSale.numberOfOwner} owner(s)`
-                      : "Not specified",
+                    value: vehicle.owner || "Not specified",
                   },
                 ].map((item, index) => (
                   <div
@@ -451,7 +450,7 @@ const VehicleDetailsPage = () => {
               </div>
             </div>
 
-            {/* Documents Section - Mobile Responsive Grid */}
+            {/* Documents Section */}
             <div className="mb-4 sm:mb-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 pb-2 border-b border-gray-200">
                 Available Documents
@@ -484,41 +483,43 @@ const VehicleDetailsPage = () => {
               </div>
             </div>
 
-            {/* Additional Information - Mobile Optimized */}
-            {(bikeSale?.additionalNotes || bikeSale?.supervisorName) && (
+            {/* Additional Information */}
+            {(vehicle.additionalNotes || vehicle.supervisorName || vehicle.description) && (
               <div className="mb-4 sm:mb-6">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 pb-2 border-b border-gray-200">
                   Additional Information
                 </h3>
                 <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-2">
-                  {bikeSale?.supervisorName && (
+                  {vehicle.supervisorName && (
                     <p className="text-gray-700 text-sm sm:text-base">
                       <span className="font-semibold">Supervisor:</span>{" "}
-                      {bikeSale.supervisorName}
+                      {vehicle.supervisorName}
                     </p>
                   )}
-                  {bikeSale?.additionalNotes && (
+                  {(vehicle.additionalNotes || vehicle.description) && (
                     <p className="text-gray-700 text-sm sm:text-base">
                       <span className="font-semibold">Notes:</span>{" "}
-                      {bikeSale.additionalNotes}
+                      {vehicle.additionalNotes || vehicle.description}
                     </p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Status Indicators - Mobile Friendly */}
+            {/* Status Indicators */}
             <div className="flex flex-wrap gap-2">
               <span
                 className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                  bikeSale?.listingStatus === "LISTED"
+                  vehicle.listingStatus === "LISTED"
                     ? "bg-green-100 text-green-800"
+                    : vehicle.listingStatus === "FEATURED"
+                    ? "bg-yellow-100 text-yellow-800"
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
-                {bikeSale?.listingStatus || "Unknown Status"}
+                {vehicle.listingStatus || "Unknown Status"}
               </span>
-              {bikeSale?.isRepairRequired && (
+              {vehicle.isRepairRequired && (
                 <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   Repair Required
                 </span>

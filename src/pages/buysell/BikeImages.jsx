@@ -1,166 +1,204 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
-const BikeImages = ({ formData, setFormData, prevStep, submitForm }) => {
-  // Track image previews
+const BikeImages = ({ formData, setFormData, prevStep, submitForm, isSubmitting }) => {
   const [previews, setPreviews] = useState({
     frontPhoto: null,
     backPhoto: null,
     leftPhoto: null,
-    rightPhoto: null
+    rightPhoto: null,
   });
 
-  const handleChange = (e) => {
+  const handleImageChange = (e) => {
     const { name, files } = e.target;
     if (files && files[0]) {
-      // Update form data with the file
-      setFormData({
-        ...formData,
-        [name]: files[0],
-      });
+      const file = files[0];
+      setFormData({ ...formData, [name]: file });
 
-      // Create and set preview URL
-      const previewUrl = URL.createObjectURL(files[0]);
-      setPreviews({
-        ...previews,
-        [name]: previewUrl
-      });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviews({ ...previews, [name]: reader.result });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Image upload dropzone component
-  const ImageUpload = ({ label, name, icon }) => (
-    <div className="mb-6">
-      <label className="block text-gray-700 font-medium mb-2" htmlFor={name}>
+  const removeImage = (name) => {
+    setFormData({ ...formData, [name]: null });
+    setPreviews({ ...previews, [name]: null });
+  };
+
+  const ImageUploadBox = ({ name, label, icon, isRequired }) => (
+    <div className="relative group">
+      <label className="block text-sm font-bold text-gray-700 mb-3">
+        {isRequired && <span className="text-red-600 text-lg mr-1">*</span>}
         {label}
       </label>
-      <div className="relative">
-        <input
-          id={name}
-          type="file"
-          name={name}
-          onChange={handleChange}
-          accept="image/*"
-          className="hidden"
-        />
+      {!previews[name] ? (
         <label
           htmlFor={name}
-          className="cursor-pointer block w-full"
+          className="relative flex flex-col items-center justify-center w-full h-64 border-3 border-dashed border-gray-300 rounded-2xl cursor-pointer bg-gradient-to-br from-gray-50 to-gray-100 hover:from-blue-50 hover:to-indigo-50 hover:border-blue-400 transition-all duration-300 group overflow-hidden"
         >
-          {previews[name] ? (
-            <div className="relative group">
-              <img
-                src={previews[name]}
-                alt={`${label} preview`}
-                className="w-full h-48 object-cover rounded-lg border-2 border-blue-300"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-lg transition-opacity">
-                <span className="text-white font-medium">Change Image</span>
-              </div>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="flex flex-col items-center justify-center pt-5 pb-6 relative z-10">
+            <div className="w-20 h-20 rounded-full bg-white shadow-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <span className="text-5xl">{icon}</span>
             </div>
-          ) : (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center h-48 bg-gray-50 hover:bg-gray-100 transition-colors">
-              <div className="text-blue-500 mb-2">
-                {icon}
-              </div>
-              <p className="text-sm text-gray-600 font-medium">Click to upload {label}</p>
-              <p className="text-xs text-gray-500 mt-1">PNG, JPG, or JPEG (max 5MB)</p>
-            </div>
-          )}
+            <p className="mb-2 text-base font-semibold text-gray-700">
+              <span className="text-blue-600">Click to upload</span> or drag and drop
+            </p>
+            <p className="text-sm text-gray-500">PNG, JPG, GIF or BMP</p>
+            <p className="text-xs text-gray-400 mt-1">(Max size: 5MB)</p>
+          </div>
+          <input
+            id={name}
+            name={name}
+            type="file"
+            className="hidden"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
         </label>
-      </div>
+      ) : (
+        <div className="relative h-64 rounded-2xl overflow-hidden border-3 border-green-400 group shadow-lg">
+          <img
+            src={previews[name]}
+            alt={label}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+            <button
+              onClick={() => removeImage(name)}
+              className="bg-red-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-red-300 flex items-center gap-2 shadow-xl"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Remove
+            </button>
+          </div>
+          <div className="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Uploaded
+          </div>
+        </div>
+      )}
     </div>
   );
 
-  // Icons for different angles
-  const icons = {
-    frontPhoto: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    backPhoto: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    leftPhoto: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    rightPhoto: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    )
-  };
-
-  // Check if all required images are uploaded
-  const allImagesUploaded =
-    formData.frontPhoto &&
-    formData.backPhoto &&
-    formData.leftPhoto &&
-    formData.rightPhoto;
-
   return (
-    <div className="w-full bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-        Upload Bike Images
-      </h2>
-
-      <div className="mb-4 bg-blue-50 text-blue-800 p-4 rounded-md">
-        <p className="text-sm">
-          <strong>Tip:</strong> Upload clear, well-lit photos of your bike from all angles.
-          Good quality images increase the chances of selling your bike faster.
-        </p>
+    <div className="space-y-8">
+      {/* Section Header */}
+      <div className="border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white text-2xl shadow-lg">
+            📸
+          </div>
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Upload Bike Images</h2>
+            <p className="text-sm text-gray-600 mt-1">Add clear photos from different angles</p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <ImageUpload label="Front View" name="frontPhoto" icon={icons.frontPhoto} />
-        <ImageUpload label="Back View" name="backPhoto" icon={icons.backPhoto} />
-        <ImageUpload label="Left Side View" name="leftPhoto" icon={icons.leftPhoto} />
-        <ImageUpload label="Right Side View" name="rightPhoto" icon={icons.rightPhoto} />
+      {/* Upload Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <ImageUploadBox name="frontPhoto" label="Front View" icon="🏍️" isRequired={false} />
+        <ImageUploadBox name="backPhoto" label="Back View" icon="🔙" isRequired={false} />
+        <ImageUploadBox name="leftPhoto" label="Left Side View" icon="⬅️" isRequired={false} />
+        <ImageUploadBox name="rightPhoto" label="Right Side View" icon="➡️" isRequired={false} />
+      </div>
+
+      {/* Upload Summary */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center text-white text-xl">
+              {[formData.frontPhoto, formData.backPhoto, formData.leftPhoto, formData.rightPhoto].filter(Boolean).length}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-green-900">Images Uploaded</p>
+              <p className="text-xs text-green-700">At least 1 image required</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-green-600">
+              {[formData.frontPhoto, formData.backPhoto, formData.leftPhoto, formData.rightPhoto].filter(Boolean).length}/4
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tips Box */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+            <span className="text-2xl">💡</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-900 mb-3">Photography Tips for Best Results</p>
+            <ul className="text-sm text-amber-800 space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Take photos in bright, natural daylight for best clarity</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Clean your bike thoroughly before photographing</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Capture the entire bike in frame from each angle</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Avoid blurry, dark, or heavily filtered images</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Show any damage or wear honestly to build trust</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 pt-8 border-t border-gray-200">
         <button
           onClick={prevStep}
-          className="px-6 py-2 text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition-all flex items-center"
+          disabled={isSubmitting}
+          className="group bg-gray-100 text-gray-700 px-10 py-4 rounded-xl font-bold text-lg hover:bg-gray-200 transform hover:scale-105 hover:-translate-y-1 transition-all duration-200 shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-gray-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+          <svg className="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
           </svg>
-          Previous
+          <span>Back to Bike Details</span>
         </button>
-
-        {!allImagesUploaded && (
-        <p className="text-xs text-center text-gray-500 mt-4">
-          Please upload all required images to continue
-        </p>
-      )}
-
         <button
           onClick={submitForm}
-          disabled={!allImagesUploaded}
-          className={`px-6 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-all flex items-center ${
-            allImagesUploaded
-              ? "text-white bg-green-600 hover:bg-green-700"
-              : "text-gray-500 bg-gray-200 cursor-not-allowed"
-          }`}
+          disabled={isSubmitting}
+          className="group bg-gradient-to-r from-green-500 to-emerald-600 text-white px-10 py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transform hover:scale-105 hover:-translate-y-1 transition-all duration-200 shadow-xl hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-green-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          Submit Listing
-          <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-          </svg>
+          {isSubmitting ? (
+            <>
+              <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Submitting...</span>
+            </>
+          ) : (
+            <>
+              <span>Submit Listing</span>
+              <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </>
+          )}
         </button>
       </div>
-
-      
     </div>
   );
 };
