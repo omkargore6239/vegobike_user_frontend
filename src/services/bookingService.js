@@ -1,16 +1,49 @@
-// services/bookingService.js - FULLY UPDATED WITH FIXED START/END TRIP
+// services/bookingService.js - FULLY UPDATED WITH VEHICLE DOCUMENTS
 import axios from 'axios';
+
 
 // Get API base URL from environment variable
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8081';
 
+
 console.log('🔗 API Base URL:', API_BASE_URL);
+
 
 // ✅ Consistent token keys
 const STORAGE_KEYS = {
   TOKEN: 'auth_token',
   USER: 'auth_user'
 };
+
+class BookingService {
+  async createBooking(bookingData) {
+    try {
+      console.log('🚀 Creating booking with data:', bookingData);
+      console.log('🔍 Payment Type being sent:', bookingData.paymentType);
+      
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/create`,
+        bookingData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // If using JWT
+          }
+        }
+      );
+
+      console.log('✅ Booking created:', response.data);
+      console.log('🔍 Response paymentType:', response.data.paymentType);
+      console.log('🔍 Response has razorpayOrderDetails:', !!response.data.razorpayOrderDetails);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Booking creation failed:', error);
+      throw error;
+    }
+  }
+}
+
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -20,6 +53,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   }
 });
+
 
 // ✅ Request interceptor with JWT token
 apiClient.interceptors.request.use(
@@ -44,6 +78,7 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
 
 // ✅ Response interceptor for error handling
 apiClient.interceptors.response.use(
@@ -70,6 +105,7 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 export const bookingService = {
   // ✅ Create booking with JSON body
@@ -187,6 +223,7 @@ export const bookingService = {
     }
   },
 
+
   // ✅ Get all bookings
   getAllBookings: async () => {
     try {
@@ -199,6 +236,7 @@ export const bookingService = {
       throw new Error('Failed to fetch bookings');
     }
   },
+
 
   // ✅ Get bookings by customer
   getBookingsByCustomer: async (customerId, options = {}) => {
@@ -217,6 +255,7 @@ export const bookingService = {
     }
   },
 
+
   // ✅ Get booking by ID
   getBookingById: async (id) => {
     try {
@@ -229,6 +268,7 @@ export const bookingService = {
       throw new Error('Booking not found');
     }
   },
+
 
   // ✅ Accept booking
   acceptBooking: async (bookingId) => {
@@ -243,16 +283,19 @@ export const bookingService = {
     }
   },
 
+
   // ✅ FIXED: Start Trip (with 4 images)
   startTrip: async (bookingId, images) => {
     try {
       console.log('🚗 START_TRIP - Booking:', bookingId, 'Images:', images.length);
+
 
       const formData = new FormData();
       images.forEach((image, index) => {
         formData.append('images', image);
         console.log(`📷 Image ${index + 1}:`, image.name, image.size);
       });
+
 
       // ✅ Use apiClient instead of api
       const response = await apiClient.post(
@@ -265,6 +308,7 @@ export const bookingService = {
         }
       );
 
+
       console.log('✅ START_TRIP - Success:', response.data);
       return response.data;
     } catch (error) {
@@ -273,16 +317,19 @@ export const bookingService = {
     }
   },
 
+
   // ✅ FIXED: End Trip (with 4 images)
   endTrip: async (bookingId, images) => {
     try {
       console.log('🏁 END_TRIP - Booking:', bookingId, 'Images:', images.length);
+
 
       const formData = new FormData();
       images.forEach((image, index) => {
         formData.append('images', image);
         console.log(`📷 Image ${index + 1}:`, image.name, image.size);
       });
+
 
       // ✅ Use apiClient instead of api
       const response = await apiClient.post(
@@ -295,6 +342,7 @@ export const bookingService = {
         }
       );
 
+
       console.log('✅ END_TRIP - Success:', response.data);
       return response.data;
     } catch (error) {
@@ -302,6 +350,49 @@ export const bookingService = {
       throw error;
     }
   },
+
+
+  // ✅ NEW: Get Vehicle Documents
+  getVehicleDocuments: async (vehicleId) => {
+    try {
+      console.log('📄 GET_VEHICLE_DOCUMENTS - Vehicle ID:', vehicleId);
+      
+      // Validate vehicleId
+      if (!vehicleId) {
+        throw new Error('Vehicle ID is required');
+      }
+      
+      const response = await apiClient.get(`/api/bikes/view-documents/${vehicleId}`);
+      
+      console.log('✅ GET_VEHICLE_DOCUMENTS - Success:', response.data);
+      return response.data;
+      
+    } catch (error) {
+      console.error('💥 GET_VEHICLE_DOCUMENTS - Error:', error.response?.data || error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+        
+        if (status === 404) {
+          throw new Error('Vehicle documents not found');
+        } else if (status === 401) {
+          throw new Error('Authentication required to view documents');
+        } else if (status === 403) {
+          throw new Error('You do not have permission to view these documents');
+        } else if (status === 500) {
+          throw new Error('Server error while fetching documents');
+        } else {
+          throw new Error(errorData.message || 'Failed to fetch vehicle documents');
+        }
+      } else if (error.request) {
+        throw new Error('Network error: Unable to connect to server');
+      } else {
+        throw error;
+      }
+    }
+  },
+
 
   // ✅ Cancel booking
   cancelBooking: async (bookingId, cancelledBy = 'USER') => {
@@ -320,6 +411,7 @@ export const bookingService = {
     }
   },
 
+
   // ✅ Complete booking
   completeBooking: async (bookingId) => {
     try {
@@ -332,6 +424,7 @@ export const bookingService = {
       throw new Error('Failed to complete booking');
     }
   },
+
 
   // ✅ Get invoice
   getInvoice: async (bookingId) => {
@@ -349,5 +442,6 @@ export const bookingService = {
     }
   }
 };
+
 
 export default bookingService;

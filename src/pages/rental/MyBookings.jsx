@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { bookingService } from '../../services/bookingService';
+import bookingService from '../../services/bookingService';
 import { ROUTES } from '../../utils/constants';
 import TripManagementModal from '../../components/rental/TripManagementModal';
+
 
 // Modern Alert/Notification Component
 const ModernAlert = ({ show, onClose, type, title, message, autoClose = true }) => {
@@ -83,6 +84,7 @@ const ModernAlert = ({ show, onClose, type, title, message, autoClose = true }) 
   );
 };
 
+
 // Enhanced Success Animation Modal
 const SuccessAnimation = ({ show, onClose, title, message }) => {
   if (!show) return null;
@@ -113,6 +115,152 @@ const SuccessAnimation = ({ show, onClose, title, message }) => {
     </div>
   );
 };
+
+
+// Documents Modal Component
+const DocumentsModal = ({ show, onClose, documents, loading }) => {
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden animate-zoom-bounce-in max-h-[90vh] flex flex-col">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100 opacity-50"></div>
+        
+        {/* Header */}
+        <div className="relative px-8 py-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">📄 Bike Documents</h2>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="relative p-8 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading documents...</p>
+            </div>
+          ) : documents ? (
+            <div className="space-y-6">
+              {/* Registration Certificate */}
+              {documents.registrationCertificate && (
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <span className="text-2xl">📋</span>
+                      Registration Certificate
+                    </h3>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                    <img 
+                      src={documents.registrationCertificate} 
+                      alt="Registration Certificate" 
+                      className="w-full h-auto object-contain max-h-64 cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(documents.registrationCertificate, '_blank')}
+                    />
+                  </div>
+                  <button
+                    onClick={() => window.open(documents.registrationCertificate, '_blank')}
+                    className="mt-3 w-full bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
+                  >
+                    🔍 View Full Size
+                  </button>
+                </div>
+              )}
+
+              {/* Insurance Certificate */}
+              {documents.insuranceCertificate && (
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <span className="text-2xl">🛡️</span>
+                      Insurance Certificate
+                    </h3>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                    <img 
+                      src={documents.insuranceCertificate} 
+                      alt="Insurance Certificate" 
+                      className="w-full h-auto object-contain max-h-64 cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(documents.insuranceCertificate, '_blank')}
+                    />
+                  </div>
+                  <button
+                    onClick={() => window.open(documents.insuranceCertificate, '_blank')}
+                    className="mt-3 w-full bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
+                  >
+                    🔍 View Full Size
+                  </button>
+                </div>
+              )}
+
+              {/* Pollution Certificate */}
+              {documents.pollutionCertificate && (
+                <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <span className="text-2xl">🌿</span>
+                      Pollution Certificate
+                    </h3>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                    <img 
+                      src={documents.pollutionCertificate} 
+                      alt="Pollution Certificate" 
+                      className="w-full h-auto object-contain max-h-64 cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(documents.pollutionCertificate, '_blank')}
+                    />
+                  </div>
+                  <button
+                    onClick={() => window.open(documents.pollutionCertificate, '_blank')}
+                    className="mt-3 w-full bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
+                  >
+                    🔍 View Full Size
+                  </button>
+                </div>
+              )}
+
+              {!documents.registrationCertificate && !documents.insuranceCertificate && !documents.pollutionCertificate && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📭</div>
+                  <p className="text-gray-600">No documents available</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">❌</div>
+              <p className="text-gray-600">Failed to load documents</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="relative px-8 py-4 border-t border-gray-200 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // Pagination Component
 const PaginationControls = ({ currentPage, totalPages, pageSize, onPageChange, onPageSizeChange }) => {
@@ -184,6 +332,7 @@ const PaginationControls = ({ currentPage, totalPages, pageSize, onPageChange, o
   );
 };
 
+
 const MyBookings = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -207,6 +356,11 @@ const MyBookings = () => {
   const [showTripModal, setShowTripModal] = useState(false);
   const [selectedTripBooking, setSelectedTripBooking] = useState(null);
   const [tripType, setTripType] = useState(null);
+
+  // Documents Modal State
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [documentsData, setDocumentsData] = useState(null);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
 
   useEffect(() => {
     if (location.state?.showSuccess) {
@@ -333,7 +487,6 @@ const MyBookings = () => {
       showNotification('success', '🚗 Trip Started!', 'Your trip has been started successfully');
       handleCloseTripModal();
       
-      // ✅ Wait a bit and then refresh bookings to get updated status
       setTimeout(() => {
         fetchBookings();
       }, 1000);
@@ -353,7 +506,6 @@ const MyBookings = () => {
       showNotification('success', '🏁 Trip Ended!', 'Your trip has been completed successfully');
       handleCloseTripModal();
       
-      // ✅ Wait a bit and then refresh bookings to get updated status
       setTimeout(() => {
         fetchBookings();
       }, 1000);
@@ -362,6 +514,42 @@ const MyBookings = () => {
       showNotification('error', '❌ Error!', error.response?.data?.message || 'Failed to end trip');
       throw error;
     }
+  };
+
+  // View Documents Handler
+  const handleViewDocuments = async (vehicleId) => {
+    try {
+      console.log('📄 VIEW_DOCUMENTS - Vehicle ID:', vehicleId);
+      
+      if (typeof bookingService.getVehicleDocuments !== 'function') {
+        console.error('❌ getVehicleDocuments is not a function!');
+        showNotification('error', '❌ Error!', 'Document service is not available. Please refresh the page.');
+        return;
+      }
+
+      setDocumentsLoading(true);
+      setShowDocumentsModal(true);
+      setDocumentsData(null);
+      
+      const response = await bookingService.getVehicleDocuments(vehicleId);
+      console.log('📄 Documents response:', response);
+      
+      const docs = response?.data || response;
+      setDocumentsData(docs);
+      
+    } catch (error) {
+      console.error('💥 VIEW_DOCUMENTS - Error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load documents';
+      showNotification('error', '❌ Error!', errorMessage);
+      setShowDocumentsModal(false);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  const handleCloseDocumentsModal = () => {
+    setShowDocumentsModal(false);
+    setDocumentsData(null);
   };
 
   const handlePageChange = (page) => {
@@ -422,22 +610,26 @@ const MyBookings = () => {
            status === 'booking accepted';
   };
 
-  // ✅ FIXED: Check if can show Start Trip button
   const canShowStartTrip = (booking) => {
     const status = booking.status?.toLowerCase();
-    const canShow = status === 'accepted' || status === 'booking accepted';
-    console.log('🔍 Can show Start Trip?', booking.bookingId, 'Status:', status, 'Result:', canShow);
-    return canShow;
+    return status === 'accepted' || status === 'booking accepted';
   };
 
-  // ✅ FIXED: Check if can show End Trip button
   const canShowEndTrip = (booking) => {
     const status = booking.status?.toLowerCase();
-    const canShow = status === 'started' || 
-                    status === 'trip started' || 
-                    status === 'start trip';
-    console.log('🔍 Can show End Trip?', booking.bookingId, 'Status:', status, 'Result:', canShow);
-    return canShow;
+    return status === 'started' || 
+           status === 'trip started' || 
+           status === 'start trip';
+  };
+
+  const canShowViewDocuments = (booking) => {
+    const status = booking.status?.toLowerCase();
+    return status === 'started' || 
+           status === 'trip started' || 
+           status === 'start trip' ||
+           status === 'ended' ||
+           status === 'trip ended' ||
+           status === 'end trip';
   };
 
   const filteredBookings = bookings.filter(booking => {
@@ -593,47 +785,51 @@ const MyBookings = () => {
                       </div>
 
                       {/* Date */}
-                      <div className="text-xs text-gray-500 mb-4">
+                      <div className="text-xs text-gray-500 mb-3">
                         Created: {formatDate(booking.createdAt)}
                       </div>
 
-                      {/* ✅ FIXED: Actions with proper status checks */}
-                      <div className="flex flex-col gap-2">
+                      {/* ✅ UPDATED: Compact Actions with smaller buttons */}
+                      <div className="flex flex-col gap-1.5">
                         {/* Cancel Button */}
                         {canCancelBooking(booking) && (
                           <button 
                             onClick={() => handleCancelBooking(booking.id)} 
-                            className="w-full bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition-all"
+                            className="w-full bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
                           >
-                            ❌ Cancel Booking
+                            Cancel Booking
                           </button>
                         )}
                         
-                        {/* ✅ Start Trip Button */}
+                        {/* Start Trip Button */}
                         {canShowStartTrip(booking) && (
                           <button
                             onClick={() => handleOpenTripModal(booking, 'start')}
-                            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-3 rounded-xl text-sm font-bold hover:from-green-600 hover:to-green-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                            className="w-full bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            </svg>
-                            🚗 Start Trip
+                            Start Trip
                           </button>
                         )}
                         
-                        {/* ✅ End Trip Button */}
+                        {/* ✅ NEW: End Trip and View Documents side by side */}
                         {canShowEndTrip(booking) && (
-                          <button
-                            onClick={() => handleOpenTripModal(booking, 'end')}
-                            className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-3 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all flex items-center justify-center gap-2 shadow-lg animate-pulse"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                            </svg>
-                            🏁 End Trip
-                          </button>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {/* End Trip Button - LEFT */}
+                            <button
+                              onClick={() => handleOpenTripModal(booking, 'end')}
+                              className="bg-red-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
+                            >
+                              End Trip
+                            </button>
+                            
+                            {/* View Documents Button - RIGHT */}
+                            <button
+                              onClick={() => handleViewDocuments(booking.vehicleId)}
+                              className="bg-blue-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-all"
+                            >
+                              View Documents
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -657,6 +853,14 @@ const MyBookings = () => {
         onStartTrip={handleStartTrip}
         onEndTrip={handleEndTrip}
         tripType={tripType}
+      />
+
+      {/* Documents Modal */}
+      <DocumentsModal
+        show={showDocumentsModal}
+        onClose={handleCloseDocumentsModal}
+        documents={documentsData}
+        loading={documentsLoading}
       />
 
       <style jsx>{`
