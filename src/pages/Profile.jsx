@@ -551,17 +551,18 @@ const Profile = () => {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                    <button
+                 
+                    {/* <button
                       onClick={handleRefreshProfile}
                       disabled={refreshing}
                       className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all disabled:opacity-50 border border-gray-200"
                       title="Refresh Profile"
                     >
                       <ArrowPathIcon className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
-                    </button>
-                    
+                    </button> */}
+                     {/* Action Buttons */}
+
+                  <div className="flex items-center gap-2 mt-4 sm:mt-0">
                     {!isEditing ? (
                       <>
                         <button
@@ -571,13 +572,13 @@ const Profile = () => {
                           <PencilIcon className="h-4 w-4 mr-2" />
                           Edit Profile
                         </button>
-                        <button
+                        {/* <button
                           onClick={handleLogout}
                           className="p-2.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl transition-all border border-red-200"
                           title="Logout"
                         >
                           <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                        </button>
+                        </button> */}
                       </>
                     ) : (
                       <>
@@ -614,7 +615,7 @@ const Profile = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+              {/* <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-600 mb-1">User ID</p>
@@ -622,7 +623,7 @@ const Profile = () => {
                   </div>
                   <HashtagIcon className="h-8 w-8 text-indigo-400" />
                 </div>
-              </div>
+              </div> */}
 
               <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
                 <div className="flex items-center justify-between">
@@ -634,7 +635,7 @@ const Profile = () => {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+              {/* <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-600 mb-1">Updated</p>
@@ -652,7 +653,7 @@ const Profile = () => {
                   </div>
                   <ShieldCheckIcon className="h-8 w-8 text-amber-400" />
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

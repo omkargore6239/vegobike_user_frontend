@@ -1061,7 +1061,7 @@ const fetchActiveStores = useCallback(async () => {
                   </div>
 
                   {/* Smart Booking Summary */}
-                  {pickupDate && pickupTime && dropoffDate && dropoffTime && (
+                  {/* {pickupDate && pickupTime && dropoffDate && dropoffTime && (
                     <div className="border-2 rounded-xl p-4" style={{ backgroundColor: `${colors.success}15`, borderColor: colors.success }}>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colors.success}25` }}>
@@ -1076,7 +1076,7 @@ const fetchActiveStores = useCallback(async () => {
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Search Button */}
                   <button

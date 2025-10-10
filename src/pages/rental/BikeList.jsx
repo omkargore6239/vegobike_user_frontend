@@ -744,7 +744,7 @@ export default function BikeList() {
                 />
               </div>
               
-              <select
+              {/* <select
                 value={selectedAddressType}
                 onChange={(e) => setSelectedAddressType(e.target.value)}
                 className="p-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2"
@@ -756,7 +756,7 @@ export default function BikeList() {
                 <option value="">All Address Types</option>
                 <option value="pickup">Pickup Only</option>
                 <option value="delivery">Delivery Available</option>
-              </select>
+              </select> */}
 
               <button
                 type="submit"
@@ -767,7 +767,7 @@ export default function BikeList() {
                 {loading ? 'Searching...' : 'Search'}
               </button>
               
-              <button
+              {/* <button
                 type="button"
                 onClick={() => navigate(ROUTES.RENTAL_SEARCH)}
                 className="px-6 py-3 font-medium rounded-lg border-2 transition-all hover:opacity-80"
@@ -776,11 +776,11 @@ export default function BikeList() {
                   color: colors.primary 
                 }}
               >
-                New Search
-              </button>
+                New Search  
+              </button> */}
 
               {/* Login/User Status */}
-              {!isAuthenticated ? (
+              {/* {!isAuthenticated ? (
                 <button
                   type="button"
                   onClick={handleLoginClick}
@@ -798,7 +798,7 @@ export default function BikeList() {
                     Hi, {user?.name || user?.phoneNumber || 'User'}!
                   </span>
                 </div>
-              )}
+              )} */}
             </form>
           </div>
         </div>

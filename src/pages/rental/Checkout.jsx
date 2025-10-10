@@ -545,9 +545,9 @@ const onSubmit = async (e) => {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-gray-900">{formatTimeOnly(bookingData.pickupTime)}</p>
                       </div>
-                      <div className="flex items-start gap-2 mt-2">
+                      {/* <div className="flex items-start gap-2 mt-2">
                         <p className="text-sm text-gray-700 font-medium">{bookingData.city}</p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 
@@ -569,9 +569,9 @@ const onSubmit = async (e) => {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-gray-900">{formatTimeOnly(bookingData.dropoffTime)}</p>
                       </div>
-                      <div className="flex items-start gap-2 mt-2">
+                      {/* <div className="flex items-start gap-2 mt-2">
                         <p className="text-sm text-gray-700 font-medium">{bookingData.city}</p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
