@@ -1,5 +1,5 @@
-// pages/Register.jsx - COMPLETE with form and correct data submission
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+// pages/Register.jsx - Modern with centered animations matching Login
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   UserIcon,
@@ -11,7 +11,6 @@ import {
   PhotoIcon,
   ShieldCheckIcon,
   ClockIcon,
-  ArrowUpIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   InformationCircleIcon,
@@ -20,43 +19,75 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { api, showNotification, NOTIFICATION_TYPES } from '../utils/apiClient';
-import {
-  API_ENDPOINTS,
-  ERROR_MESSAGES,
-  SUCCESS_MESSAGES,
-  VALIDATION,
-  STORAGE_KEYS
-} from '../utils/constants';
+import { API_ENDPOINTS, STORAGE_KEYS } from '../utils/constants';
 
-// ScrollToTop Component
-const ScrollToTop = () => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  const toggleVisibility = useCallback(() => {
-    setIsVisible(window.pageYOffset > 300);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('scroll', toggleVisibility);
-    return () => window.removeEventListener('scroll', toggleVisibility);
-  }, [toggleVisibility]);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  return isVisible ? (
-    <button
-      onClick={scrollToTop}
-      className="fixed bottom-6 right-6 z-50 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
-      aria-label="Scroll to top"
-    >
-      <ArrowUpIcon className="h-6 w-6" />
-    </button>
-  ) : null;
+// ✅ MODERN: Success Animation with glassmorphism (same as Login)
+const SuccessAnimation = ({ message }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-sm mx-4 shadow-2xl border border-white/20 animate-scale-bounce">
+        <div className="text-center">
+          <div className="relative mx-auto w-24 h-24 mb-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 rounded-full animate-pulse-slow"></div>
+            <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
+              <svg 
+                className="w-12 h-12 text-green-600" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  className="animate-check-draw" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={3} 
+                  d="M5 13l4 4L19 7" 
+                  strokeDasharray="30"
+                  strokeDashoffset="30"
+                />
+              </svg>
+            </div>
+          </div>
+          
+          <h3 className="text-2xl font-bold text-gray-900 mb-2 animate-slide-up">Success!</h3>
+          <p className="text-gray-600 animate-slide-up-delay">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// OTP Input Component
+// ✅ MODERN: Redirecting Animation
+const RedirectingAnimation = ({ message = 'Redirecting...' }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 max-w-sm mx-4 shadow-2xl border border-white/20 animate-scale-bounce">
+        <div className="text-center">
+          <div className="relative mx-auto w-24 h-24 mb-6">
+            <div className="absolute inset-0">
+              <div className="w-full h-full border-4 border-indigo-200 rounded-full"></div>
+              <div className="absolute inset-0 w-full h-full border-4 border-indigo-600 rounded-full border-t-transparent animate-spin-slow"></div>
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-600 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+          
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">{message}</h3>
+          <p className="text-gray-600">Please wait a moment...</p>
+          
+          <div className="flex justify-center space-x-2 mt-4">
+            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced OTP Input Component
 const OTPInput = ({ length = 4, onComplete, loading = false, showHint = false }) => {
   const inputRef = useRef([]);
   const [otp, setOTP] = useState(Array(length).fill(''));
@@ -190,18 +221,21 @@ const Register = () => {
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [registrationData, setRegistrationData] = useState(null);
-  const [debugMode, setDebugMode] = useState(true);
   const [developmentMode, setDevelopmentMode] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
-  const [retryCount, setRetryCount] = useState(0);
+  const [showOtpSuccess, setShowOtpSuccess] = useState(false);
+  const [showRegisterSuccess, setShowRegisterSuccess] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
-  const topRef = useRef(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [step]);
+    if (location.state?.phoneNumber) {
+      setFormData(prev => ({ ...prev, phoneNumber: location.state.phoneNumber }));
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let timer;
@@ -346,7 +380,6 @@ const Register = () => {
     return true;
   };
 
-  // ✅ CRITICAL FIX: Send data as JSON string in 'data' field
   const handleInitialSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -359,7 +392,6 @@ const Register = () => {
     try {
       const formDataPayload = new FormData();
       
-      // ✅ Create JSON object
       const registrationPayload = {
         name: formData.name.trim(),
         phoneNumber: formData.phoneNumber.trim(),
@@ -374,7 +406,6 @@ const Register = () => {
         storeId: 0
       };
       
-      // ✅ FIX: Send as JSON string in 'data' field
       formDataPayload.append('data', JSON.stringify(registrationPayload));
       
       if (formData.profileImage) {
@@ -382,7 +413,6 @@ const Register = () => {
       }
 
       console.log('📤 Sending registration OTP');
-      console.log('📦 Data:', registrationPayload);
 
       const result = await api.upload(API_ENDPOINTS.AUTH.SEND_REGISTRATION_OTP, formDataPayload);
       
@@ -390,27 +420,33 @@ const Register = () => {
       
       if (result && (result.status === 'true' || result.success !== false)) {
         const responseData = result.data || result;
-        setSuccess(responseData.message || 'OTP sent successfully');
         setRegistrationData(registrationPayload);
         setDevelopmentMode(responseData.developmentMode === 'true' || false);
         
+        // ✅ Show success animation
+        setShowOtpSuccess(true);
+        showNotification('OTP sent successfully', NOTIFICATION_TYPES.SUCCESS);
+        
         setTimeout(() => {
+          setShowOtpSuccess(false);
+          setSuccess(responseData.message || 'OTP sent successfully');
           setStep('otp-verification');
           setCountdown(30);
           window.scrollTo(0, 0);
-        }, 500);
+        }, 2000);
       } else {
-        throw new Error(result?.message || 'Failed to send OTP');
-      }
+       throw new Error(result?.message || 'User already registered with this email or phone number.');
+}
 
-    } catch (err) {
-      console.error('❌ Error:', err);
-      let errorMessage = 'Failed to send OTP. Please try again.';
-      
+} catch (err) {
+  console.error('❌ Error:', err);
+  let errorMessage = 'Email or phone number already registered.';
+
       if (err.response?.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       } else if (err.response?.status === 409) {
         errorMessage = 'Phone number already registered. Please login.';
+        setTimeout(() => navigate('/login'), 2000);
       } else {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
@@ -423,71 +459,76 @@ const Register = () => {
   };
 
   const handleVerifyOTP = async (otpCode) => {
-  if (!otpCode || otpCode.length !== 4) {
-    setError('Please enter a valid 4-digit OTP');
-    return;
-  }
+    if (!otpCode || otpCode.length !== 4) {
+      setError('Please enter a valid 4-digit OTP');
+      return;
+    }
 
     setOtpLoading(true);
     setError('');
 
     try {
-    console.log('🔐 REGISTER - Verifying OTP:', otpCode);
+      console.log('🔐 REGISTER - Verifying OTP:', otpCode);
 
-    const result = await api.post(API_ENDPOINTS.AUTH.VERIFY_REGISTRATION_OTP, {
-      phoneNumber: formData.phoneNumber.trim(),
-      otp: otpCode.trim()
-    });
+      const result = await api.post(API_ENDPOINTS.AUTH.VERIFY_REGISTRATION_OTP, {
+        phoneNumber: formData.phoneNumber.trim(),
+        otp: otpCode.trim()
+      });
 
-    console.log('✅ REGISTER - Verification Response:', result);
+      console.log('✅ REGISTER - Verification Response:', result);
 
-    // ✅ Check for successful response
-    if (result && (result.status === 'true' || result.success === true || result.token)) {
-      const { token, user, message } = result;
-      
-      // ✅ CRITICAL: Store JWT token immediately
-      if (token) {
-        console.log('🔐 Storing JWT token in localStorage');
-        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      }
-      
-      // ✅ CRITICAL: Store user data
-      if (user) {
-        console.log('👤 Storing user data in localStorage');
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      if (result && (result.status === 'true' || result.success === true || result.token)) {
+        const { token, user, message } = result;
+        
+        if (token) {
+          console.log('🔐 Storing JWT token');
+          localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+        }
+        
+        if (user) {
+          console.log('👤 Storing user data');
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        } else {
+          const minimalUser = {
+            phoneNumber: formData.phoneNumber,
+            name: formData.name,
+            email: formData.email,
+            roleId: 3
+          };
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(minimalUser));
+        }
+        
+        // ✅ Show success animation
+        setShowRegisterSuccess(true);
+        showNotification(message || 'Welcome to VegoBike!', NOTIFICATION_TYPES.SUCCESS);
+        
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+        
       } else {
-        // Create minimal user object if backend doesn't send user data
-        const minimalUser = {
-          phoneNumber: formData.phoneNumber,
-          name: formData.name,
-          email: formData.email,
-          roleId: 3
-        };
-        console.log('👤 Storing minimal user data in localStorage');
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(minimalUser));
+        throw new Error(result?.message || 'Verification failed');
+      }
+
+    } catch (err) {
+      console.error('❌ REGISTER - Verification Error:', err);
+      
+      let errorMessage = 'Verification failed. Please try again.';
+      
+      if (err.response?.status === 400 || err.response?.data?.message?.includes('Invalid OTP')) {
+        errorMessage = 'Invalid or expired OTP. Please try again.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Registration session expired. Please restart.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      setSuccess(message || 'Registration successful! Logging you in...');
-      showNotification(message || 'Welcome to VegoBike!', NOTIFICATION_TYPES.SUCCESS);
-      
-      // ✅ Auto-login: Navigate directly to home
-      setTimeout(() => {
-        console.log('🚀 Navigating to home page after successful registration');
-        window.location.href = '/'; // Force full page reload to update auth state
-      }, 1500);
-      
-    } else {
-      throw new Error(result?.message || 'Verification failed');
+      setError(errorMessage);
+      showNotification(errorMessage, NOTIFICATION_TYPES.ERROR);
+    } finally {
+      setOtpLoading(false);
     }
-
-  } catch (err) {
-    console.error('❌ REGISTER - Verification Error:', err);
-    setError(err.response?.data?.message || err.message || 'Verification failed');
-    setRetryCount(prev => prev + 1);
-  } finally {
-    setOtpLoading(false);
-  }
-};
+  };
 
   const handleResendOTP = async () => {
     if (!registrationData) {
@@ -511,6 +552,7 @@ const Register = () => {
       if (result && (result.status === 'true' || result.success !== false)) {
         setSuccess('OTP resent successfully');
         setCountdown(30);
+        showNotification('New OTP sent to your phone', NOTIFICATION_TYPES.SUCCESS);
       } else {
         setError('Failed to resend OTP');
       }
@@ -525,20 +567,10 @@ const Register = () => {
   if (step === 'otp-verification') {
     return (
       <>
-        <ScrollToTop />
-        <div ref={topRef} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+        {showRegisterSuccess && <SuccessAnimation message="Registration successful! Welcome to VegoBike!" />}
+        
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md mx-auto">
-            {debugMode && (
-              <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-xs">
-                <div className="flex justify-between items-center mb-2">
-                  <strong>Debug - OTP Verification</strong>
-                  <button onClick={() => setDebugMode(false)} className="text-red-600 hover:text-red-800">✕</button>
-                </div>
-                <p><strong>Phone:</strong> {formData.phoneNumber}</p>
-                <p><strong>Test OTP:</strong> 1234</p>
-              </div>
-            )}
-
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
                 <div className="bg-indigo-100 p-3 rounded-full">
@@ -556,14 +588,14 @@ const Register = () => {
             <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
               <div className="space-y-6">
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start animate-shake">
                     <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
                     <span className="text-sm">{error}</span>
                   </div>
                 )}
 
                 {success && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
+                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center animate-slide-down">
                     <CheckCircleIcon className="h-5 w-5 text-green-400 mr-3" />
                     <span className="text-sm">{success}</span>
                   </div>
@@ -585,16 +617,16 @@ const Register = () => {
                   {countdown > 0 ? (
                     <div className="flex items-center text-gray-500 text-sm">
                       <ClockIcon className="h-4 w-4 mr-2" />
-                      <span>Resend in {countdown}s</span>
+                      <span>Resend OTP in {countdown}s</span>
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={handleResendOTP}
                       disabled={otpLoading}
-                      className="text-indigo-600 hover:text-indigo-500 font-medium disabled:opacity-50 text-sm"
+                      className="text-indigo-600 hover:text-indigo-500 font-medium disabled:opacity-50 transition-colors text-sm"
                     >
-                      Resend OTP
+                      {otpLoading ? 'Sending...' : 'Resend OTP'}
                     </button>
                   )}
                 </div>
@@ -607,30 +639,12 @@ const Register = () => {
                       setError('');
                       setSuccess('');
                     }}
-                    className="flex items-center justify-center text-gray-600 hover:text-gray-500 font-medium mx-auto text-sm"
+                    className="flex items-center justify-center text-gray-600 hover:text-gray-500 font-medium mx-auto transition-colors text-sm"
                   >
                     <ArrowLeftIcon className="h-4 w-4 mr-1" />
                     Change Phone Number
                   </button>
                 </div>
-
-                {retryCount >= 2 && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start">
-                      <InformationCircleIcon className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-blue-800">Having trouble?</h3>
-                        <p className="text-sm text-blue-700 mt-1">Try logging in if your account was already created.</p>
-                        <button
-                          onClick={() => navigate('/login')}
-                          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 mt-2"
-                        >
-                          Go to Login
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -642,21 +656,11 @@ const Register = () => {
   // Registration Form View
   return (
     <>
-      <ScrollToTop />
-      <div ref={topRef} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
+      {showOtpSuccess && <SuccessAnimation message="OTP sent to your phone!" />}
+      {redirecting && <RedirectingAnimation message="Redirecting to Login" />}
+      
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
-          
-          {debugMode && (
-            <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-xs">
-              <div className="flex justify-between items-center mb-2">
-                <strong>Debug - Registration</strong>
-                <button onClick={() => setDebugMode(false)} className="text-red-600 hover:text-red-800">✕</button>
-              </div>
-              <p><strong>Endpoint:</strong> {API_ENDPOINTS.AUTH.SEND_REGISTRATION_OTP}</p>
-              <p><strong>Backend:</strong> {API_ENDPOINTS.BASE_URL}</p>
-            </div>
-          )}
-
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-indigo-100 p-3 rounded-full">
@@ -668,7 +672,7 @@ const Register = () => {
             <p className="text-sm text-indigo-600 font-medium">🔒 No password required</p>
             <p className="mt-4 text-sm text-gray-500">
               Already have an account?{' '}
-              <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
                 Sign in here
               </Link>
             </p>
@@ -677,14 +681,14 @@ const Register = () => {
           <div className="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
             <form onSubmit={handleInitialSubmit} className="space-y-6">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start animate-shake">
                   <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">{error}</span>
                 </div>
               )}
 
               {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center animate-slide-down">
                   <CheckCircleIcon className="h-5 w-5 text-green-400 mr-3" />
                   <span className="text-sm">{success}</span>
                 </div>
@@ -900,7 +904,7 @@ const Register = () => {
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Max 2MB, JPG/PNG/WebP</p>
+                {/* <p className="text-xs text-gray-500 mt-1">Max 2MB, JPG/PNG/WebP</p> */}
               </div>
 
               {/* Submit Button */}
@@ -908,7 +912,7 @@ const Register = () => {
                 <button
                   type="submit"
                   disabled={loading || Object.keys(validationErrors).length > 0}
-                  className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
                 >
                   {loading ? (
                     <>
@@ -923,21 +927,139 @@ const Register = () => {
                   )}
                 </button>
               </div>
-
-              {/* Security Note */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <ShieldCheckIcon className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">Passwordless & Secure</p>
-                    <p>Register with OTP - No password needed!</p>
-                  </div>
-                </div>
-              </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* ✅ Modern CSS animations (same as Login) */}
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes scale-bounce {
+          0% {
+            transform: scale(0.3);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          70% {
+            transform: scale(0.95);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes check-draw {
+          from {
+            stroke-dashoffset: 30;
+          }
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
+        
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.05);
+          }
+        }
+        
+        @keyframes slide-up {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slide-up-delay {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-10px); }
+          75% { transform: translateX(10px); }
+        }
+        
+        @keyframes slide-down {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+        
+        .animate-scale-bounce {
+          animation: scale-bounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .animate-check-draw {
+          animation: check-draw 0.6s ease-out 0.3s forwards;
+        }
+        
+        .animate-pulse-slow {
+          animation: pulse-slow 2s ease-in-out infinite;
+        }
+        
+        .animate-slide-up {
+          animation: slide-up 0.4s ease-out 0.5s both;
+        }
+        
+        .animate-slide-up-delay {
+          animation: slide-up-delay 0.4s ease-out 0.6s both;
+        }
+        
+        .animate-spin-slow {
+          animation: spin-slow 1.5s linear infinite;
+        }
+        
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
+        }
+        
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out;
+        }
+      `}</style>
     </>
   );
 };

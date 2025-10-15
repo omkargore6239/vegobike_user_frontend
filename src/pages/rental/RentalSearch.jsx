@@ -24,7 +24,7 @@ const DEFAULT_IMAGES = {
   city: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMUExRTgyIi8+CjxyZWN0IHg9IjUwIiB5PSIxMDAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjU5RTBCIiBvcGFjaXR5PSIwLjMiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjE1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Q2l0eTwvdGV4dD4KPC9zdmc+',
   bike1: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSJsaW5lYXItZ3JhZGllbnQoNDVkZWcsICMxMEI5ODEsICMxQTFFODIpIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TcG9ydCBCaWtlPC90ZXh0Pgo8L3N2Zz4=',
   bike2: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRUY0NDQ0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ci8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Dcml1aXNlcjwvdGV4dD4KPC9zdmc+',
-  bike3: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjNzc0OEU1Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Ub3VyaW5nPC90ZXh0Pgo8L3N2Zz4=',
+  bike3: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjNzc0OEU1Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSI0Ci8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iI0ZGRkZGZiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Ub3VyaW5nPC90ZXh0Pgo8L3N2Zz4=',
   bike4: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjU5RTBCIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxjaXJjbGUgY3g9IjMwMCIgY3k9IjE2MCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0Ci8+CjxwYXRoIGQ9Ik0xMzAgMTYwTDI3MCA4MEwyODUgMTAwTTI3MCA4MEwyNDAgNjAiIHN0cm9rZT0iIzFGMjkzNyIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHA+dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMUYyOTM3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BZHZlbnR1cmU8L3RleHQ+Cjwvc3ZnPg=='
 };
 
@@ -63,70 +63,60 @@ export default function RentalSearch() {
     getAvailableBikes: `${BASE_URL}/api/bikes/available`
   }), []);
 
-  // ✅ Enhanced error handling for your backend response format
-const makeApiCall = useCallback(async (url, options = {}) => {
-  const defaultHeaders = {
-    'Accept': 'application/json'
-  };
+  const makeApiCall = useCallback(async (url, options = {}) => {
+    const defaultHeaders = {
+      'Accept': 'application/json'
+    };
 
-  const defaultOptions = {
-    method: 'GET',
-    headers: {
-      ...defaultHeaders,
-      ...options.headers
-    },
-    ...options
-  };
+    const defaultOptions = {
+      method: 'GET',
+      headers: {
+        ...defaultHeaders,
+        ...options.headers
+      },
+      ...options
+    };
 
-  try {
-    console.log('🔄 Making API call to:', url);
-    const response = await fetch(url, defaultOptions);
-    console.log('📥 Response status:', response.status);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    try {
+      console.log('🔄 Making API call to:', url);
+      const response = await fetch(url, defaultOptions);
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('✅ API Response data:', responseData);
+      
+      if (responseData.success === false) {
+        throw new Error(responseData.message || 'API returned error');
+      }
+      
+      return responseData;
+      
+    } catch (error) {
+      console.error('💥 API Call Error:', error);
+      throw error;
     }
-    
-    const responseData = await response.json();
-    console.log('✅ API Response data:', responseData);
-    
-    // ✅ Handle your backend's success/error format
-    if (responseData.success === false) {
-      throw new Error(responseData.message || 'API returned error');
-    }
-    
-    return responseData;
-    
-  } catch (error) {
-    console.error('💥 API Call Error:', error);
-    throw error;
-  }
-}, []);
+  }, []);
 
-
-  // Image URL helper function
   const getImageUrl = useCallback((imagePath) => {
     if (!imagePath || imagePath.trim() === '') return null;
     
     const path = imagePath.trim();
     
-    // If it's already a full URL
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return path;
     }
     
-    // If it starts with uploads/
     if (path.startsWith('/uploads/') || path.startsWith('uploads/')) {
-    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
-  }
-  
+      return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+    }
     
-    
-    // Default: assume it's in uploads directory
     return `${BASE_URL}/uploads/${path}`;
   }, []);
 
-  // Image Component with error handling
   const ImageWithFallback = React.memo(({ src, alt, className, fallback = DEFAULT_IMAGES.city }) => {
     const [hasError, setHasError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -159,11 +149,6 @@ const makeApiCall = useCallback(async (url, options = {}) => {
 
     return (
       <div className="relative">
-        {isLoading && (
-          <div className={`${className} bg-gray-100 flex items-center justify-center absolute inset-0 animate-pulse`}>
-            <span className="text-xs text-gray-400">Loading...</span>
-          </div>
-        )}
         <img 
           src={imageUrl}
           alt={alt}
@@ -178,9 +163,8 @@ const makeApiCall = useCallback(async (url, options = {}) => {
 
   ImageWithFallback.displayName = 'ImageWithFallback';
 
-  // ✅ FIX: Fetch cities function with proper dependency management
   const fetchActiveCities = useCallback(async () => {
-    if (loading) return; // Prevent multiple calls
+    if (loading) return;
     
     setLoading(true);
     setError('');
@@ -189,7 +173,6 @@ const makeApiCall = useCallback(async (url, options = {}) => {
       console.log('🔄 Fetching active cities from:', API_ENDPOINTS.getActiveCities);
       const responseData = await makeApiCall(API_ENDPOINTS.getActiveCities);
       
-      // Handle different response formats
       const citiesData = responseData?.data || responseData || [];
       const validCitiesData = Array.isArray(citiesData) ? citiesData : [];
       
@@ -202,64 +185,66 @@ const makeApiCall = useCallback(async (url, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [API_ENDPOINTS.getActiveCities, makeApiCall, loading]); // Removed extra dependencies
+  }, [API_ENDPOINTS.getActiveCities, makeApiCall, loading]);
 
-  // ✅ FIX: Fetch stores function
-  // ✅ Fix the fetchActiveStores function to properly extract data
-const fetchActiveStores = useCallback(async () => {
-  try {
-    console.log('🔄 Fetching active stores from:', API_ENDPOINTS.getActiveStores);
-    const responseData = await makeApiCall(API_ENDPOINTS.getActiveStores);
-    
-    // ✅ Since your backend returns {success: true, data: [...], count: 5}
-    // Extract the data array correctly
-    let storesData = [];
-    if (responseData && typeof responseData === 'object') {
-      storesData = responseData.data || responseData || [];
-    } else {
-      storesData = responseData || [];
+  const fetchActiveStores = useCallback(async () => {
+    try {
+      console.log('🔄 Fetching active stores from:', API_ENDPOINTS.getActiveStores);
+      const responseData = await makeApiCall(API_ENDPOINTS.getActiveStores);
+      
+      let storesData = [];
+      if (responseData && typeof responseData === 'object') {
+        storesData = responseData.data || responseData || [];
+      } else {
+        storesData = responseData || [];
+      }
+      
+      const validStoresData = Array.isArray(storesData) ? storesData : [];
+      
+      setStores(validStoresData);
+      console.log('✅ Stores data updated:', validStoresData.length, 'stores');
+      
+    } catch (err) {
+      console.error('❌ Error fetching stores:', err);
     }
-    
-    const validStoresData = Array.isArray(storesData) ? storesData : [];
-    
-    setStores(validStoresData);
-    console.log('✅ Stores data updated:', validStoresData.length, 'stores');
-    console.log('🔍 First store data:', validStoresData[0]); // Debug log
-    
-  } catch (err) {
-    console.error('❌ Error fetching stores:', err);
-  }
-}, [API_ENDPOINTS.getActiveStores, makeApiCall]);
+  }, [API_ENDPOINTS.getActiveStores, makeApiCall]);
 
-
-  // ✅ FIX: Load data on component mount - ONLY ONCE
   useEffect(() => {
     console.log('🚀 Component mounted, API Base URL:', BASE_URL);
     
-    // Load cities and stores
     fetchActiveCities();
     fetchActiveStores();
     window.scrollTo(0, 0);
-  }, []); // Empty dependency array to run only once on mount
+  }, []);
 
-  // Get current date and time
   const getCurrentDateTime = () => {
     const now = new Date();
-    const bufferTime = new Date(now.getTime() + (30 * 60000));
+    const bufferTime = new Date(now.getTime() + (15 * 60000));
+    
+    const minutes = bufferTime.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 5) * 5;
+    const nextAvailableTime = new Date(bufferTime);
+    
+    if (roundedMinutes >= 60) {
+      nextAvailableTime.setHours(nextAvailableTime.getHours() + 1);
+      nextAvailableTime.setMinutes(0);
+    } else {
+      nextAvailableTime.setMinutes(roundedMinutes);
+    }
+    nextAvailableTime.setSeconds(0);
+    nextAvailableTime.setMilliseconds(0);
     
     const currentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const currentTime = `${String(bufferTime.getHours()).padStart(2, '0')}:${String(bufferTime.getMinutes()).padStart(2, '0')}`;
+    const minTime = `${String(nextAvailableTime.getHours()).padStart(2, '0')}:${String(nextAvailableTime.getMinutes()).padStart(2, '0')}`;
     
-    return { currentDate, currentTime, currentDateTime: now };
+    return { currentDate, minTime, currentDateTime: now, nextAvailableTime };
   };
 
-  const { currentDate, currentTime, currentDateTime } = getCurrentDateTime();
+  const { currentDate, minTime, currentDateTime, nextAvailableTime } = getCurrentDateTime();
 
-  // Month names
   const monthNames = ["January", "February", "March", "April", "May", "June", 
                      "July", "August", "September", "October", "November", "December"];
 
-  // Generate calendar days
   const generateCalendarDays = (month = selectedMonth, year = selectedYear) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
@@ -267,7 +252,6 @@ const fetchActiveStores = useCallback(async () => {
     const startDate = firstDay.getDay();
     const days = [];
 
-    // Previous month days
     const prevMonth = month === 0 ? 11 : month - 1;
     const prevYear = month === 0 ? year - 1 : year;
     const prevMonthLastDay = new Date(prevYear, prevMonth + 1, 0).getDate();
@@ -284,7 +268,6 @@ const fetchActiveStores = useCallback(async () => {
       });
     }
 
-    // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const dayDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
@@ -296,7 +279,6 @@ const fetchActiveStores = useCallback(async () => {
       });
     }
 
-    // Next month days
     const totalCells = Math.ceil(days.length / 7) * 7;
     const nextMonth = month === 11 ? 0 : month + 1;
     const nextYear = month === 11 ? year + 1 : year;
@@ -315,7 +297,6 @@ const fetchActiveStores = useCallback(async () => {
     return days;
   };
 
-  // Navigate months
   const navigateMonth = (direction) => {
     if (direction === 'prev') {
       if (selectedMonth === 0) {
@@ -334,11 +315,11 @@ const fetchActiveStores = useCallback(async () => {
     }
   };
 
-  // Generate time slots
   const generateTimeSlots = (selectedDateStr = null) => {
     const slots = [];
+    
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute of [0, 30]) {
+      for (let minute = 0; minute < 60; minute += 5) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         const displayTime = new Date(2000, 0, 1, hour, minute).toLocaleTimeString('en-US', {
           hour: 'numeric',
@@ -347,8 +328,9 @@ const fetchActiveStores = useCallback(async () => {
         });
         
         let isAvailable = true;
+        
         if (selectedDateStr && selectedDateStr === currentDate) {
-          isAvailable = time >= currentTime;
+          isAvailable = time >= minTime;
         }
         
         if (isAvailable) {
@@ -356,10 +338,10 @@ const fetchActiveStores = useCallback(async () => {
         }
       }
     }
+    
     return slots;
   };
 
-  // Auto-calculate dropoff date/time
   const calculateDropoffDateTime = (pickupDateStr, pickupTimeStr) => {
     if (!pickupDateStr || !pickupTimeStr) return { date: '', time: '' };
     
@@ -372,38 +354,33 @@ const fetchActiveStores = useCallback(async () => {
     return { date: dropoffDateStr, time: dropoffTimeStr };
   };
 
-  // Close all dropdowns
   const closeAllDropdowns = () => {
     setActiveDropdown('');
   };
 
-  // Handle city selection
   const handleCitySelect = (cityId) => {
     setSelectedCity(cityId);
     setSelectedStore('');
     setPickupMode('');
     setShowCityModal(false);
     
-    // Auto-open pickup mode selection
     setTimeout(() => {
       document.querySelector('input[name="pickupMode"]')?.focus();
     }, 100);
   };
 
-  // Handle store selection
   const handleStoreSelect = (storeId) => {
     setSelectedStore(storeId);
     closeAllDropdowns();
     setTimeout(() => setActiveDropdown('pickupDate'), 200);
   };
 
-  // Handle date selection
   const handleDateSelect = (date, type) => {
     if (date < currentDate) return;
     
     if (type === 'pickup') {
       setPickupDate(date);
-      if (date === currentDate && pickupTime && pickupTime < currentTime) {
+      if (date === currentDate && pickupTime && pickupTime < minTime) {
         setPickupTime('');
       }
       
@@ -419,7 +396,7 @@ const fetchActiveStores = useCallback(async () => {
       if (pickupDate && date < pickupDate) return;
       
       setDropoffDate(date);
-      if (date === currentDate && dropoffTime && dropoffTime < currentTime) {
+      if (date === currentDate && dropoffTime && dropoffTime < minTime) {
         setDropoffTime('');
       }
       
@@ -428,10 +405,9 @@ const fetchActiveStores = useCallback(async () => {
     }
   };
 
-  // Handle time selection
   const handleTimeSelect = (time, type) => {
     if (type === 'pickup') {
-      if (pickupDate === currentDate && time < currentTime) return;
+      if (pickupDate === currentDate && time < minTime) return;
       
       setPickupTime(time);
       
@@ -444,7 +420,7 @@ const fetchActiveStores = useCallback(async () => {
       setActiveDropdown('');
       setTimeout(() => setActiveDropdown('dropoffDate'), 200);
     } else {
-      if (dropoffDate === currentDate && time < currentTime) return;
+      if (dropoffDate === currentDate && time < minTime) return;
       if (dropoffDate === pickupDate && pickupTime && time <= pickupTime) return;
       
       setDropoffTime(time);
@@ -452,14 +428,12 @@ const fetchActiveStores = useCallback(async () => {
     }
   };
 
-  // Handle today selection
   const handleSelectToday = (type) => {
     setSelectedMonth(currentDateTime.getMonth());
     setSelectedYear(currentDateTime.getFullYear());
     handleDateSelect(currentDate, type);
   };
 
-  // Format functions
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr + 'T00:00:00');
@@ -481,45 +455,30 @@ const fetchActiveStores = useCallback(async () => {
     });
   };
 
-  // Get bike image fallback
   const getBikeImage = (index) => {
-    const bikeImages = [DEFAULT_IMAGES.bike1, DEFAULT_IMAGES.bike2, DEFAULT_IMAGES.bike3, DEFAULT_IMAGES.bike4];
+    const bikeImages = [
+      '/bike1.jpg',
+      '/bike2.png',
+      '/bike3.png',
+    ];
     return bikeImages[index % bikeImages.length];
   };
 
-  // Get selected city data
   const selectedCityData = cities.find(city => city.id === selectedCity);
 
-  // Get stores for selected city (filtered)
- const cityStores = useMemo(() => {
-  if (!selectedCity || !stores.length) {
-    console.log('🔍 No city selected or no stores:', { selectedCity, storesLength: stores.length });
-    return [];
-  }
-
-  console.log('🔍 Filtering stores for city:', selectedCity);
-  console.log('🔍 Available stores:', stores);
-  console.log('🔍 Sample store data:', stores[0]);
+  const cityStores = useMemo(() => {
+    if (!selectedCity || !stores.length) {
+      return [];
+    }
     
-     const filteredStores = stores; // Remove filtering logic temporarily
-  
-  console.log('🔍 Filtered stores result:', filteredStores);
-  return filteredStores;
-  
-  // ✅ Later, when we know the store data structure, use proper filtering:
-  // return stores.filter(store => {
-  //   const storeCityId = store.cityId || store.city?.id;
-  //   return storeCityId === parseInt(selectedCity);
-  // });
-}, [stores, selectedCity]);
+    return stores;
+  }, [stores, selectedCity]);
 
-  // Form submission
   const onSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // Format dates for API call
       const startDate = new Date(`${pickupDate}T${pickupTime}:00`);
       const endDate = new Date(`${dropoffDate}T${dropoffTime}:00`);
       
@@ -547,7 +506,6 @@ const fetchActiveStores = useCallback(async () => {
     (pickupMode === 'delivery' ? deliveryAddress : selectedStore) && 
     pickupDate && pickupTime && dropoffDate && dropoffTime;
 
-  // Event listeners for closing dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.dropdown-container')) {
@@ -571,14 +529,14 @@ const fetchActiveStores = useCallback(async () => {
   }, []);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.light }}>
-      {/* Hero Section with Side-by-Side Layout */}
-      <div style={{ backgroundColor: colors.primary }}>
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid lg:grid-cols-2 gap-8 items-start">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: colors.light }}>
+      {/* Hero Section with Side-by-Side Layout - FULL HEIGHT */}
+      <div className="flex-1 flex" style={{ backgroundColor: colors.primary }}>
+        <div className="w-full max-w-7xl mx-auto px-4 py-8 flex items-center">
+          <div className="grid lg:grid-cols-2 gap-8 items-center w-full">
             {/* Left Side - Booking Form */}
-            <div className="order-2 lg:order-1">
-              <div className="rounded-2xl p-6 shadow-xl" style={{ backgroundColor: colors.white }}>
+            <div className="order-2 lg:order-1 h-full flex items-center">
+              <div className="rounded-2xl p-6 shadow-xl w-full" style={{ backgroundColor: colors.white }}>
                 <h3 className="text-lg font-semibold mb-6" style={{ color: colors.dark }}>
                   Search your next ride
                 </h3>
@@ -600,7 +558,7 @@ const fetchActiveStores = useCallback(async () => {
                   </div>
                 )}
                 
-                <form onSubmit={onSubmit} className="space-y-5">
+                <form onSubmit={onSubmit} className="space-y-4">
                   {/* City Selection */}
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
@@ -643,7 +601,7 @@ const fetchActiveStores = useCallback(async () => {
                             Pickup at Store
                           </span>
                         </label>
-                        <label className="flex items-center gap-2">
+                        {/* <label className="flex items-center gap-2">
                           <input
                             type="radio"
                             name="pickupMode"
@@ -655,39 +613,36 @@ const fetchActiveStores = useCallback(async () => {
                           <span className="text-sm font-medium" style={{ color: colors.text }}>
                             Delivery at Location
                           </span>
-                        </label>
+                        </label> */}
                       </div>
                     </div>
                   )}
 
                   {/* Store Selection */}
-                  {/* Store Selection - Updated to use your backend field names */}
-{selectedCity && pickupMode === 'store' && (
-  <div>
-    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
-      Store ({cityStores.length} available)
-    </label>
-    <select
-      value={selectedStore}
-      onChange={(e) => handleStoreSelect(e.target.value)}
-      className="w-full p-3 border-2 rounded-lg transition-colors text-sm font-medium focus:outline-none focus:ring-0"
-      style={{
-        borderColor: selectedStore ? colors.primary : colors.border,
-        backgroundColor: selectedStore ? `${colors.primary}15` : colors.white,
-        color: selectedStore ? colors.dark : colors.textLight
-      }}
-    >
-      <option value="">Select Store</option>
-      {cityStores.map(store => (
-        <option key={store.id} value={store.id}>
-          {/* ✅ Updated to use your backend field names */}
-          {store.storeName} - {store.storeAddress}
-        </option>
-      ))}
-    </select>
-  </div>
-)}
-
+                  {selectedCity && pickupMode === 'store' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
+                        Store ({cityStores.length} available)
+                      </label>
+                      <select
+                        value={selectedStore}
+                        onChange={(e) => handleStoreSelect(e.target.value)}
+                        className="w-full p-3 border-2 rounded-lg transition-colors text-sm font-medium focus:outline-none focus:ring-0"
+                        style={{
+                          borderColor: selectedStore ? colors.primary : colors.border,
+                          backgroundColor: selectedStore ? `${colors.primary}15` : colors.white,
+                          color: selectedStore ? colors.dark : colors.textLight
+                        }}
+                      >
+                        <option value="">Select Store</option>
+                        {cityStores.map(store => (
+                          <option key={store.id} value={store.id}>
+                            {store.storeName} - {store.storeAddress}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Delivery Address */}
                   {selectedCity && pickupMode === 'delivery' && (
@@ -710,14 +665,14 @@ const fetchActiveStores = useCallback(async () => {
 
                   {/* Pickup Section */}
                   <div>
-                    <label className="block text-sm font-medium mb-3" style={{ color: colors.text }}>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                       <span className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.success }}></span>
                         Pickup
                       </span>
                     </label>
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Pickup Date */}
+                      {/* Pickup Date - ✅ DROPDOWN OPENS UPWARD */}
                       <div className="dropdown-container relative">
                         <button
                           type="button"
@@ -733,28 +688,34 @@ const fetchActiveStores = useCallback(async () => {
                           {pickupDate ? formatDate(pickupDate) : 'Select Date'}
                         </button>
 
-                        {/* Date Dropdown */}
+                        {/* ✅ Calendar Opens ABOVE - Changed from mt-2 to bottom-full mb-2 */}
                         {activeDropdown === 'pickupDate' && (
-                          <div className="absolute z-50 mt-2 w-80 border-2 rounded-xl shadow-2xl" 
-                               style={{ backgroundColor: colors.white, borderColor: colors.border }}>
-                            <div className="p-4">
+                          <div 
+                            className="absolute left-0 right-0 z-50 bottom-full mb-2 border-2 rounded-xl shadow-2xl" 
+                            style={{ 
+                              backgroundColor: colors.white, 
+                              borderColor: colors.border,
+                              maxWidth: '320px'
+                            }}
+                          >
+                            <div className="p-3">
                               {/* Month/Year Navigation */}
-                              <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center justify-between mb-3">
                                 <button
                                   type="button"
                                   onClick={() => navigateMonth('prev')}
                                   className="p-1 rounded-full transition-colors hover:bg-gray-100"
                                 >
-                                  <svg className="w-5 h-5" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                   </svg>
                                 </button>
                                 
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
                                   <select
                                     value={selectedMonth}
                                     onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                    className="text-sm font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
+                                    className="text-xs font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
                                     style={{ color: colors.dark }}
                                   >
                                     {monthNames.map((month, index) => (
@@ -764,7 +725,7 @@ const fetchActiveStores = useCallback(async () => {
                                   <select
                                     value={selectedYear}
                                     onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                    className="text-sm font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
+                                    className="text-xs font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
                                     style={{ color: colors.dark }}
                                   >
                                     {Array.from({length: 3}, (_, i) => currentDateTime.getFullYear() + i).map(year => (
@@ -778,7 +739,7 @@ const fetchActiveStores = useCallback(async () => {
                                   onClick={() => navigateMonth('next')}
                                   className="p-1 rounded-full transition-colors hover:bg-gray-100"
                                 >
-                                  <svg className="w-5 h-5" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                   </svg>
                                 </button>
@@ -786,7 +747,7 @@ const fetchActiveStores = useCallback(async () => {
                                 <button
                                   type="button"
                                   onClick={() => setActiveDropdown('')}
-                                  className="text-xl ml-2 hover:bg-gray-100 rounded p-1"
+                                  className="text-lg hover:bg-gray-100 rounded p-1"
                                   style={{ color: colors.textLight }}
                                 >
                                   ×
@@ -794,9 +755,9 @@ const fetchActiveStores = useCallback(async () => {
                               </div>
 
                               {/* Calendar Grid */}
-                              <div className="grid grid-cols-7 gap-1 mb-4">
+                              <div className="grid grid-cols-7 gap-1 mb-3">
                                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                                  <div key={day} className="text-center text-xs p-2 font-medium" style={{ color: colors.textLight }}>
+                                  <div key={day} className="text-center text-xs p-1 font-medium" style={{ color: colors.textLight }}>
                                     {day}
                                   </div>
                                 ))}
@@ -811,7 +772,7 @@ const fetchActiveStores = useCallback(async () => {
                                       type="button"
                                       onClick={isClickable ? () => handleDateSelect(day.fullDate, 'pickup') : undefined}
                                       disabled={!isClickable}
-                                      className="p-2 text-sm rounded-lg transition-colors"
+                                      className="p-1.5 text-xs rounded-lg transition-colors"
                                       style={{
                                         backgroundColor: isSelected ? colors.primary : isToday ? colors.warning : 'transparent',
                                         color: isSelected || isToday ? colors.white : isClickable ? colors.dark : colors.textLight,
@@ -825,11 +786,11 @@ const fetchActiveStores = useCallback(async () => {
                                 })}
                               </div>
 
-                              <div className="flex justify-center pt-3 border-t" style={{ borderColor: colors.border }}>
+                              <div className="flex justify-center pt-2 border-t" style={{ borderColor: colors.border }}>
                                 <button
                                   type="button"
                                   onClick={() => handleSelectToday('pickup')}
-                                  className="font-medium text-sm px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                                  className="font-medium text-xs px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                                   style={{ color: colors.primary }}
                                 >
                                   Select Today
@@ -840,7 +801,7 @@ const fetchActiveStores = useCallback(async () => {
                         )}
                       </div>
 
-                      {/* Pickup Time */}
+                      {/* Pickup Time - ✅ DROPDOWN OPENS UPWARD */}
                       <div className="dropdown-container relative">
                         <button
                           type="button"
@@ -856,12 +817,19 @@ const fetchActiveStores = useCallback(async () => {
                           {pickupTime ? formatTime(pickupTime) : 'Select Time'}
                         </button>
 
+                        {/* ✅ Time Opens ABOVE */}
                         {activeDropdown === 'pickupTime' && (
-                          <div className="absolute z-50 mt-2 w-full border-2 rounded-xl shadow-2xl max-h-48 overflow-y-auto"
-                               style={{ backgroundColor: colors.white, borderColor: colors.border }}>
+                          <div 
+                            className="absolute left-0 right-0 z-50 bottom-full mb-2 border-2 rounded-xl shadow-2xl max-h-48 overflow-y-auto"
+                            style={{ 
+                              backgroundColor: colors.white, 
+                              borderColor: colors.border,
+                              maxWidth: '240px'
+                            }}
+                          >
                             <div className="p-2">
                               {generateTimeSlots(pickupDate).map(slot => {
-                                const isDisabled = pickupDate === currentDate && slot.value < currentTime;
+                                const isDisabled = pickupDate === currentDate && slot.value < minTime;
                                 const isSelected = pickupTime === slot.value;
                                 return (
                                   <button
@@ -869,7 +837,7 @@ const fetchActiveStores = useCallback(async () => {
                                     type="button"
                                     onClick={!isDisabled ? () => handleTimeSelect(slot.value, 'pickup') : undefined}
                                     disabled={isDisabled}
-                                    className="w-full text-left px-4 py-3 text-sm transition-colors rounded-lg"
+                                    className="w-full text-left px-3 py-2 text-xs transition-colors rounded-lg"
                                     style={{
                                       backgroundColor: isSelected ? colors.primary : 'transparent',
                                       color: isDisabled ? colors.textLight : isSelected ? colors.white : colors.dark,
@@ -890,7 +858,7 @@ const fetchActiveStores = useCallback(async () => {
 
                   {/* Dropoff Section */}
                   <div>
-                    <label className="block text-sm font-medium mb-3" style={{ color: colors.text }}>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                       <span className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.danger }}></span>
                         Dropoff
@@ -900,7 +868,7 @@ const fetchActiveStores = useCallback(async () => {
                       </span>
                     </label>
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Dropoff Date */}
+                      {/* Dropoff Date - ✅ DROPDOWN OPENS UPWARD */}
                       <div className="dropdown-container relative">
                         <button
                           type="button"
@@ -917,26 +885,33 @@ const fetchActiveStores = useCallback(async () => {
                           {dropoffDate && <span className="ml-2 text-xs" style={{ color: colors.primary }}>✓</span>}
                         </button>
 
+                        {/* ✅ Calendar Opens ABOVE */}
                         {activeDropdown === 'dropoffDate' && (
-                          <div className="absolute z-50 mt-2 w-80 border-2 rounded-xl shadow-2xl"
-                               style={{ backgroundColor: colors.white, borderColor: colors.border }}>
-                            <div className="p-4">
-                              <div className="flex items-center justify-between mb-4">
+                          <div 
+                            className="absolute left-0 right-0 z-50 bottom-full mb-2 border-2 rounded-xl shadow-2xl"
+                            style={{ 
+                              backgroundColor: colors.white, 
+                              borderColor: colors.border,
+                              maxWidth: '320px'
+                            }}
+                          >
+                            <div className="p-3">
+                              <div className="flex items-center justify-between mb-3">
                                 <button
                                   type="button"
                                   onClick={() => navigateMonth('prev')}
                                   className="p-1 rounded-full transition-colors hover:bg-gray-100"
                                 >
-                                  <svg className="w-5 h-5" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                   </svg>
                                 </button>
                                 
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
                                   <select
                                     value={selectedMonth}
                                     onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                    className="text-sm font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
+                                    className="text-xs font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
                                     style={{ color: colors.dark }}
                                   >
                                     {monthNames.map((month, index) => (
@@ -946,7 +921,7 @@ const fetchActiveStores = useCallback(async () => {
                                   <select
                                     value={selectedYear}
                                     onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                    className="text-sm font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
+                                    className="text-xs font-semibold bg-transparent border-none focus:outline-none cursor-pointer"
                                     style={{ color: colors.dark }}
                                   >
                                     {Array.from({length: 3}, (_, i) => currentDateTime.getFullYear() + i).map(year => (
@@ -960,7 +935,7 @@ const fetchActiveStores = useCallback(async () => {
                                   onClick={() => navigateMonth('next')}
                                   className="p-1 rounded-full transition-colors hover:bg-gray-100"
                                 >
-                                  <svg className="w-5 h-5" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4" style={{ color: colors.textLight }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                   </svg>
                                 </button>
@@ -968,16 +943,16 @@ const fetchActiveStores = useCallback(async () => {
                                 <button
                                   type="button"
                                   onClick={() => setActiveDropdown('')}
-                                  className="text-xl ml-2 hover:bg-gray-100 rounded p-1"
+                                  className="text-lg hover:bg-gray-100 rounded p-1"
                                   style={{ color: colors.textLight }}
                                 >
                                   ×
                                 </button>
                               </div>
 
-                              <div className="grid grid-cols-7 gap-1 mb-4">
+                              <div className="grid grid-cols-7 gap-1 mb-3">
                                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                                  <div key={day} className="text-center text-xs p-2 font-medium" style={{ color: colors.textLight }}>
+                                  <div key={day} className="text-center text-xs p-1 font-medium" style={{ color: colors.textLight }}>
                                     {day}
                                   </div>
                                 ))}
@@ -992,7 +967,7 @@ const fetchActiveStores = useCallback(async () => {
                                       type="button"
                                       onClick={isClickable ? () => handleDateSelect(day.fullDate, 'dropoff') : undefined}
                                       disabled={!isClickable}
-                                      className="p-2 text-sm rounded-lg transition-colors"
+                                      className="p-1.5 text-xs rounded-lg transition-colors"
                                       style={{
                                         backgroundColor: isSelected ? colors.primary : isToday ? colors.warning : 'transparent',
                                         color: isSelected || isToday ? colors.white : isClickable ? colors.dark : colors.textLight,
@@ -1010,7 +985,7 @@ const fetchActiveStores = useCallback(async () => {
                         )}
                       </div>
 
-                      {/* Dropoff Time */}
+                      {/* Dropoff Time - ✅ DROPDOWN OPENS UPWARD */}
                       <div className="dropdown-container relative">
                         <button
                           type="button"
@@ -1027,12 +1002,19 @@ const fetchActiveStores = useCallback(async () => {
                           {dropoffTime && <span className="ml-2 text-xs" style={{ color: colors.primary }}>✓</span>}
                         </button>
 
+                        {/* ✅ Time Opens ABOVE */}
                         {activeDropdown === 'dropoffTime' && (
-                          <div className="absolute z-50 mt-2 w-full border-2 rounded-xl shadow-2xl max-h-48 overflow-y-auto"
-                               style={{ backgroundColor: colors.white, borderColor: colors.border }}>
+                          <div 
+                            className="absolute left-0 right-0 z-50 bottom-full mb-2 border-2 rounded-xl shadow-2xl max-h-48 overflow-y-auto"
+                            style={{ 
+                              backgroundColor: colors.white, 
+                              borderColor: colors.border,
+                              maxWidth: '240px'
+                            }}
+                          >
                             <div className="p-2">
                               {generateTimeSlots(dropoffDate).map(slot => {
-                                const isDisabled = (dropoffDate === currentDate && slot.value < currentTime) ||
+                                const isDisabled = (dropoffDate === currentDate && slot.value < minTime) ||
                                                  (dropoffDate === pickupDate && pickupTime && slot.value <= pickupTime);
                                 const isSelected = dropoffTime === slot.value;
                                 return (
@@ -1041,7 +1023,7 @@ const fetchActiveStores = useCallback(async () => {
                                     type="button"
                                     onClick={!isDisabled ? () => handleTimeSelect(slot.value, 'dropoff') : undefined}
                                     disabled={isDisabled}
-                                    className="w-full text-left px-4 py-3 text-sm transition-colors rounded-lg"
+                                    className="w-full text-left px-3 py-2 text-xs transition-colors rounded-lg"
                                     style={{
                                       backgroundColor: isSelected ? colors.primary : 'transparent',
                                       color: isDisabled ? colors.textLight : isSelected ? colors.white : colors.dark,
@@ -1059,24 +1041,6 @@ const fetchActiveStores = useCallback(async () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Smart Booking Summary */}
-                  {/* {pickupDate && pickupTime && dropoffDate && dropoffTime && (
-                    <div className="border-2 rounded-xl p-4" style={{ backgroundColor: `${colors.success}15`, borderColor: colors.success }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colors.success}25` }}>
-                          <span className="font-bold" style={{ color: colors.success }}>✓</span>
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-sm" style={{ color: colors.dark }}>Booking Ready!</h4>
-                          <p className="text-xs" style={{ color: colors.text }}>
-                            {formatDate(pickupDate)} {formatTime(pickupTime)} → {formatDate(dropoffDate)} {formatTime(dropoffTime)}
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: colors.primary }}>24 hours rental period</p>
-                        </div>
-                      </div>
-                    </div>
-                  )} */}
 
                   {/* Search Button */}
                   <button
@@ -1125,14 +1089,14 @@ const fetchActiveStores = useCallback(async () => {
                     <img 
                       src={getBikeImage(0)}
                       alt="Sport Bike" 
-                      className="w-full h-32 object-cover"
+                      className="w-full h-40 object-cover"
                     />
                   </div>
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
                       src={getBikeImage(1)}
                       alt="Cruiser Bike" 
-                      className="w-full h-24 object-cover"
+                      className="w-full h-32 object-cover"
                     />
                   </div>
                 </div>
@@ -1141,14 +1105,14 @@ const fetchActiveStores = useCallback(async () => {
                     <img 
                       src={getBikeImage(2)}
                       alt="Touring Bike" 
-                      className="w-full h-24 object-cover"
+                      className="w-full h-32 object-cover"
                     />
                   </div>
                   <div className="relative overflow-hidden rounded-xl shadow-lg">
                     <img 
                       src={getBikeImage(3)}
                       alt="Adventure Bike" 
-                      className="w-full h-32 object-cover"
+                      className="w-full h-40 object-cover"
                     />
                   </div>
                 </div>
@@ -1157,6 +1121,8 @@ const fetchActiveStores = useCallback(async () => {
           </div>
         </div>
       </div>
+
+      {/* City Selection Modal */}
       {showCityModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: colors.white }}>
@@ -1210,46 +1176,32 @@ const fetchActiveStores = useCallback(async () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                   {cities.map((city, index) => {
-    // ✅ Calculate stores for this specific city
-    const citySpecificStores = stores.filter(store => {
-      const storeCityId = store.cityId || store.city?.id;
-      return storeCityId === city.id;
-    });
-    
-    return (
-                     <button
-        key={city.id}
-        onClick={() => handleCitySelect(city.id)}
-        className={`group relative overflow-hidden rounded-xl transition-all hover:scale-105 hover:shadow-lg ${
-          selectedCity === city.id ? 'ring-3' : ''
-        }`}
-        style={{ ringColor: selectedCity === city.id ? colors.primary : 'transparent' }}
-      >
-        <div className="aspect-[4/3] relative">
-          <ImageWithFallback 
-            src={city.cityImage}
-            alt={city.cityName}
-            className="w-full h-full object-cover"
-            fallback={DEFAULT_IMAGES.city}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black opacity-70 to-transparent"></div>
-        </div>
-        <div className="absolute bottom-3 left-3 text-white">
-          <div className="text-lg font-bold">{city.cityName}</div>
-          <div className="text-sm opacity-90">
-            {/* ✅ Show actual store count for this city */}
-            {citySpecificStores.length} store{citySpecificStores.length !== 1 ? 's' : ''}
-          </div>
-          <div className="text-xs mt-1 px-2 py-1 rounded-full inline-block font-medium" 
-               style={{ backgroundColor: colors.warning, color: colors.dark }}>
-            {citySpecificStores.length > 0 ? 'Available for booking' : 'Coming soon'}
-          </div>
-        </div>
-      </button>
-                 );
-  })}
-</div>
+                  {cities.map((city) => {
+                    return (
+                      <button
+                        key={city.id}
+                        onClick={() => handleCitySelect(city.id)}
+                        className={`group relative overflow-hidden rounded-xl transition-all hover:scale-105 hover:shadow-lg ${
+                          selectedCity === city.id ? 'ring-3' : ''
+                        }`}
+                        style={{ ringColor: selectedCity === city.id ? colors.primary : 'transparent' }}
+                      >
+                        <div className="aspect-[4/3] relative">
+                          <ImageWithFallback 
+                            src={city.cityImage}
+                            alt={city.cityName}
+                            className="w-full h-full object-cover"
+                            fallback={DEFAULT_IMAGES.city}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black opacity-70 to-transparent"></div>
+                        </div>
+                        <div className="absolute bottom-3 left-3 text-white">
+                          <div className="text-lg font-bold">{city.cityName}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>

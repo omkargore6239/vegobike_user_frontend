@@ -1,4 +1,4 @@
-// utils/constants.js - Fully updated with AUTH endpoint profile integration (2025)
+// utils/constants.js - Fully updated with Document Verification (2025)
 
 // =================================
 // STORAGE KEYS
@@ -43,6 +43,7 @@ export const ROUTES = {
   PROFILE: '/profile',
   DASHBOARD: '/dashboard',
   MYBOOKINGS: '/rental/mybookings',
+  DOCUMENT_VERIFICATION: '/document-verification', // ✅ NEW
   
   // Module Routes
   RENTAL: '/rental',
@@ -57,7 +58,6 @@ export const ROUTES = {
   RENTAL_BOOKING: '/rental/booking',
   RENTAL_MY_BOOKINGS: '/rental/my-bookings',
   RENTAL_HISTORY: '/rental/history',
-  
   
   // Servicing Sub-routes
   SERVICING_HOME: '/servicing',
@@ -130,7 +130,8 @@ export const MODULES = {
   AUTH: 'auth',
   USER: 'user',
   ADMIN: 'admin',
-  STORE_MANAGER: 'store-manager'
+  STORE_MANAGER: 'store-manager',
+  DOCUMENTS: 'documents', // ✅ NEW
 };
 
 // =================================
@@ -151,11 +152,11 @@ export const ROLE_NAMES = {
 export const ROLE_PERMISSIONS = {
   [USER_ROLES.ADMIN]: ['*'], // All permissions
   [USER_ROLES.STORE_MANAGER]: ['rental:manage', 'inventory:manage', 'bookings:manage'],
-  [USER_ROLES.USER]: ['rental:book', 'profile:manage', 'orders:view']
+  [USER_ROLES.USER]: ['rental:book', 'profile:manage', 'orders:view', 'documents:upload']
 };
 
 // =================================
-// API ENDPOINTS - UPDATED WITH AUTH PROFILE INTEGRATION
+// API ENDPOINTS - UPDATED WITH DOCUMENT VERIFICATION
 // =================================
 export const API_ENDPOINTS = {
   // Base URL - Updated to match your backend port
@@ -182,7 +183,7 @@ export const API_ENDPOINTS = {
     REFRESH_TOKEN: '/api/auth/refresh-token',
     LOGOUT: '/api/auth/logout',
     
-    // ✅ NEW: Profile Management (Moved to AUTH controller)
+    // Profile Management
     PROFILE: '/api/auth/profile',
     UPDATE_PROFILE: '/api/auth/profile',
     CHANGE_PASSWORD: '/api/auth/change-password',
@@ -191,16 +192,32 @@ export const API_ENDPOINTS = {
     DEBUG_OTP: '/api/auth/debug/otp',
   },
 
-  // Document Management
+  // ✅ UPDATED: Document Management - Matching Backend API
   DOCUMENTS: {
     BASE: '/api/documents',
+    
+    // Get user documents - GET /api/documents/{userId}
+    GET_USER_DOCUMENTS: '/api/documents', // Will append /{userId}
+    
+    // Upload documents (JSON-based) - POST /api/documents/upload
     UPLOAD: '/api/documents/upload',
-    VERIFY: '/api/documents/verify',
-    GET_USER_DOCUMENTS: '/api/documents/{userId}',
-    DELETE_DOCUMENT: '/api/documents/{userId}/{documentType}',
+    
+    // Upload documents (File-based MultipartFile) - POST /api/documents/upload-files
+    UPLOAD_FILES: '/api/documents/upload-files',
+    
+    // Verify documents - PATCH /api/documents/verify/{userId}
+    VERIFY: '/api/documents/verify', // Will append /{userId}
+    
+    // FormData parameter names (must match backend @RequestParam)
+    PARAM_NAMES: {
+      ADHAAR_FRONT: 'adhaarFront',
+      ADHAAR_BACK: 'adhaarBack',
+      DRIVING_LICENSE: 'drivingLicense',
+      USER_ID: 'userId'
+    }
   },
   
-  // ✅ UPDATED: User Management (Now points to AUTH endpoints for profile)
+  // User Management
   USER: {
     // Profile management now uses AUTH endpoints
     PROFILE: '/api/auth/profile',
@@ -227,6 +244,7 @@ export const API_ENDPOINTS = {
     BOOK: '/api/rental/book',
     BOOKINGS: '/api/rental/bookings',
     MY_BOOKINGS: '/api/rental/my-bookings',
+    BOOKINGS_BY_CUSTOMER: '/api/booking-bikes/by-customer',
     CANCEL_BOOKING: '/api/rental/bookings/{id}/cancel',
     EXTEND_BOOKING: '/api/rental/bookings/{id}/extend',
     CATEGORIES: '/api/rental/categories',
@@ -394,7 +412,7 @@ export const VALIDATION = {
   // Email
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   
-  // ✅ NEW: Profile specific validations
+  // Profile specific validations
   // Address
   ADDRESS_MIN_LENGTH: 10,
   ADDRESS_MAX_LENGTH: 200,
@@ -527,7 +545,7 @@ export const BUSINESS = {
     RATE_LIMIT_PER_HOUR: 10, // Max OTP requests per phone per hour
   },
   
-  // ✅ NEW: Profile Configuration
+  // Profile Configuration
   PROFILE: {
     MAX_PROFILE_IMAGE_SIZE: 2097152, // 2MB
     ALLOWED_IMAGE_FORMATS: ['image/jpeg', 'image/png', 'image/webp'],
@@ -546,23 +564,46 @@ export const BUSINESS = {
 };
 
 // =================================
-// DOCUMENT VERIFICATION
+// DOCUMENT VERIFICATION - ENHANCED
 // =================================
 export const VERIFICATION_STATUS = {
   NOT_UPLOADED: 'NOT_UPLOADED',
   PENDING: 'PENDING',
+  UNDER_REVIEW: 'UNDER_REVIEW',
   APPROVED: 'APPROVED',
-  REJECTED: 'REJECTED'
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED'
 };
 
 export const DOCUMENT_TYPES = {
   ADHAAR_FRONT: 'adhaarFront',
   ADHAAR_BACK: 'adhaarBack',
-  LICENSE: 'license'
+  DRIVING_LICENSE: 'drivingLicense'
+};
+
+// ✅ NEW: Document validation rules
+export const DOCUMENT_VALIDATION = {
+  MAX_FILE_SIZE: 5242880, // 5MB in bytes
+  MIN_FILE_SIZE: 10240, // 10KB minimum
+  ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'],
+  ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.pdf'],
+  IMAGE_TYPES: ['image/jpeg', 'image/jpg', 'image/png'],
+  PDF_TYPE: 'application/pdf',
+  
+  // Validation messages
+  MESSAGES: {
+    FILE_TOO_LARGE: 'File size must be less than 5MB',
+    FILE_TOO_SMALL: 'File size must be at least 10KB',
+    INVALID_TYPE: 'Only JPG, PNG, and PDF files are allowed',
+    NO_FILE_SELECTED: 'Please select a file to upload',
+    UPLOAD_SUCCESS: 'Document uploaded successfully',
+    UPLOAD_FAILED: 'Failed to upload document',
+    ALL_REQUIRED: 'All three documents are required for verification'
+  }
 };
 
 // =================================
-// ERROR MESSAGES - ENHANCED WITH PROFILE MESSAGES
+// ERROR MESSAGES - ENHANCED WITH DOCUMENT MESSAGES
 // =================================
 export const ERROR_MESSAGES = {
   // Network & General
@@ -584,7 +625,7 @@ export const ERROR_MESSAGES = {
   INVALID_OTP: 'Please enter a valid 4-digit OTP.',
   PASSWORD_TOO_SHORT: 'Password must be at least 6 characters long.',
   
-  // ✅ NEW: Profile specific error messages
+  // Profile specific error messages
   INVALID_NAME: 'Name can only contain letters and spaces.',
   NAME_TOO_SHORT: 'Name must be at least 2 characters long.',
   NAME_TOO_LONG: 'Name cannot exceed 50 characters.',
@@ -595,6 +636,18 @@ export const ERROR_MESSAGES = {
   INVALID_UPI: 'Please enter a valid UPI ID (e.g., user@paytm).',
   PROFILE_IMAGE_TOO_LARGE: 'Profile image must be smaller than 2MB.',
   INVALID_IMAGE_FORMAT: 'Please select a valid image format (JPG, PNG, WebP).',
+  
+  // ✅ NEW: Document verification error messages
+  DOCUMENT_UPLOAD_FAILED: 'Failed to upload document. Please try again.',
+  DOCUMENT_TOO_LARGE: 'Document file size must be less than 5MB.',
+  DOCUMENT_TOO_SMALL: 'Document file size must be at least 10KB.',
+  DOCUMENT_INVALID_FORMAT: 'Only JPG, PNG, and PDF formats are accepted.',
+  DOCUMENTS_NOT_COMPLETE: 'Please upload all required documents.',
+  DOCUMENT_VERIFICATION_FAILED: 'Failed to submit verification request.',
+  DOCUMENT_LOAD_FAILED: 'Failed to load existing documents.',
+  DOCUMENT_DELETE_FAILED: 'Failed to delete document.',
+  NO_DOCUMENT_SELECTED: 'Please select a document to upload.',
+  DOCUMENT_ALREADY_UPLOADED: 'This document has already been uploaded.',
   
   // OTP Related
   OTP_EXPIRED: 'OTP has expired. Please request a new one.',
@@ -623,7 +676,7 @@ export const ERROR_MESSAGES = {
 };
 
 // =================================
-// SUCCESS MESSAGES - ENHANCED WITH PROFILE MESSAGES
+// SUCCESS MESSAGES - ENHANCED WITH DOCUMENT MESSAGES
 // =================================
 export const SUCCESS_MESSAGES = {
   // Authentication
@@ -633,7 +686,7 @@ export const SUCCESS_MESSAGES = {
   OTP_SENT: 'OTP sent successfully to your phone.',
   OTP_VERIFIED: 'OTP verified successfully.',
   
-  // ✅ NEW: Profile & Account messages
+  // Profile & Account messages
   PROFILE_UPDATED: 'Your profile has been updated successfully.',
   PROFILE_LOADED: 'Profile loaded successfully.',
   PASSWORD_CHANGED: 'Password changed successfully.',
@@ -641,6 +694,14 @@ export const SUCCESS_MESSAGES = {
   BANKING_DETAILS_UPDATED: 'Banking details updated successfully.',
   PERSONAL_INFO_UPDATED: 'Personal information updated successfully.',
   ADDRESS_UPDATED: 'Address updated successfully.',
+  
+  // ✅ NEW: Document verification success messages
+  DOCUMENT_UPLOADED: 'Document uploaded successfully!',
+  ALL_DOCUMENTS_UPLOADED: 'All documents uploaded successfully!',
+  VERIFICATION_SUBMITTED: 'Verification request submitted successfully!',
+  DOCUMENT_DELETED: 'Document deleted successfully.',
+  DOCUMENTS_LOADED: 'Documents loaded successfully.',
+  DOCUMENTS_VERIFIED: 'Your documents have been verified successfully!',
   
   // Booking & Orders
   BOOKING_CONFIRMED: 'Your booking has been confirmed successfully!',
@@ -659,6 +720,44 @@ export const SUCCESS_MESSAGES = {
   DATA_SYNCED: 'Your data has been synchronized successfully.',
   OPERATION_COMPLETED: 'Operation completed successfully.',
 };
+
+// utils/constants.js - Add these constants to your existing file
+
+export const BOOKING_TYPES = {
+  HOURLY: 'hourly',
+  DAILY: 'daily',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly'
+};
+
+export const PACKAGE_CONFIG = {
+  HOURLY: {
+    label: 'Hourly',
+    minHours: 3,
+    maxHours: 72,
+    priceKey: 'hourlyRate'
+  },
+  DAILY: {
+    label: 'Daily',
+    minDays: 1,
+    maxDays: 30,
+    priceKey: 'dailyRate'
+  },
+  WEEKLY: {
+    label: 'Weekly',
+    minWeeks: 1,
+    maxWeeks: 4,
+    priceKey: 'weeklyRate'
+  },
+  MONTHLY: {
+    label: 'Monthly',
+    minMonths: 1,
+    maxMonths: 12,
+    priceKey: 'monthlyRate'
+  }
+};
+
+// ... rest of your existing constants
 
 // =================================
 // CACHE DURATION (in milliseconds)
@@ -686,11 +785,16 @@ export const FEATURES = {
   TWO_FACTOR_AUTH: false,
   BIOMETRIC_LOGIN: false,
   
-  // ✅ NEW: Profile Features
+  // Profile Features
   PROFILE_IMAGE_UPLOAD: true,
   BANKING_DETAILS: true,
   ADDRESS_AUTOCOMPLETE: false,
   PROFILE_COMPLETION_TRACKING: true,
+  
+  // ✅ NEW: Document Features
+  DOCUMENT_VERIFICATION: true,
+  DOCUMENT_AUTO_VERIFY: false,
+  DOCUMENT_OCR: false,
   
   // Business Features
   MULTI_LANGUAGE: false,
@@ -769,6 +873,19 @@ export const PROFILE_CONSTANTS = {
   },
 };
 
+// ✅ NEW: Document Constants Export
+export const DOCUMENT_CONSTANTS = {
+  API_ENDPOINTS: API_ENDPOINTS.DOCUMENTS,
+  VERIFICATION_STATUS,
+  DOCUMENT_TYPES,
+  DOCUMENT_VALIDATION,
+  FEATURES: {
+    DOCUMENT_VERIFICATION: FEATURES.DOCUMENT_VERIFICATION,
+    DOCUMENT_AUTO_VERIFY: FEATURES.DOCUMENT_AUTO_VERIFY,
+    DOCUMENT_OCR: FEATURES.DOCUMENT_OCR,
+  },
+};
+
 export const UI_CONSTANTS = {
   THEMES: UI.THEMES,
   BREAKPOINTS: UI.BREAKPOINTS,
@@ -804,6 +921,7 @@ Object.freeze(UI);
 Object.freeze(BUSINESS);
 Object.freeze(VERIFICATION_STATUS);
 Object.freeze(DOCUMENT_TYPES);
+Object.freeze(DOCUMENT_VALIDATION);
 Object.freeze(ERROR_MESSAGES);
 Object.freeze(SUCCESS_MESSAGES);
 Object.freeze(CACHE_DURATION);
@@ -827,6 +945,7 @@ export default {
   BUSINESS,
   VERIFICATION_STATUS,
   DOCUMENT_TYPES,
+  DOCUMENT_VALIDATION,
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
   CACHE_DURATION,

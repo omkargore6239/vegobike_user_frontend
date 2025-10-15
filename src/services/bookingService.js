@@ -1,51 +1,28 @@
-// services/bookingService.js - FULLY UPDATED WITH VEHICLE DOCUMENTS
+// services/bookingService.js - COMPLETE & PRODUCTION READY WITH KILOMETER SUPPORT
 import axios from 'axios';
 
-
-// Get API base URL from environment variable
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8081';
 
+// Auto-detect token key
+const detectTokenKey = () => {
+  const possibleKeys = ['token', 'auth_token', 'authToken', 'jwt_token', 'accessToken'];
+  for (const key of possibleKeys) {
+    const value = localStorage.getItem(key);
+    if (value && value.trim() !== '') {
+      return key;
+    }
+  }
+  return 'token';
+};
 
-console.log('🔗 API Base URL:', API_BASE_URL);
-
-
-// ✅ Consistent token keys
 const STORAGE_KEYS = {
-  TOKEN: 'auth_token',
+  get TOKEN() {
+    return detectTokenKey();
+  },
   USER: 'auth_user'
 };
 
-class BookingService {
-  async createBooking(bookingData) {
-    try {
-      console.log('🚀 Creating booking with data:', bookingData);
-      console.log('🔍 Payment Type being sent:', bookingData.paymentType);
-      
-      const response = await axios.post(
-        `${API_BASE_URL}/booking/create`,
-        bookingData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // If using JWT
-          }
-        }
-      );
-
-      console.log('✅ Booking created:', response.data);
-      console.log('🔍 Response paymentType:', response.data.paymentType);
-      console.log('🔍 Response has razorpayOrderDetails:', !!response.data.razorpayOrderDetails);
-      
-      return response.data;
-    } catch (error) {
-      console.error('❌ Booking creation failed:', error);
-      throw error;
-    }
-  }
-}
-
-
-// Create axios instance with default config
+// Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -54,394 +31,516 @@ const apiClient = axios.create({
   }
 });
 
-
-// ✅ Request interceptor with JWT token
+// Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    console.log('📤 Making API request to:', config.baseURL + config.url);
-    console.log('📤 Request method:', config.method?.toUpperCase());
-    
-    // ✅ Add JWT token from localStorage
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const tokenKey = STORAGE_KEYS.TOKEN;
+    const token = localStorage.getItem(tokenKey);
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔐 JWT token attached to request');
-    } else {
-      console.warn('⚠️ No JWT token found in localStorage');
     }
     
     return config;
   },
-  (error) => {
-    console.error('📤 Request interceptor error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-
-// ✅ Response interceptor for error handling
+// Response interceptor
 apiClient.interceptors.response.use(
-  (response) => {
-    console.log('📥 API response received:', response.status, response.config.url);
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error('📥 API response error:', error.response?.status, error.config?.url, error.message);
-    
-    if (error.response) {
-      console.error('📥 Response data:', error.response.data);
-      console.error('📥 Response headers:', error.response.headers);
+    if (error.response?.status === 401) {
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER);
       
-      // Handle 401 Unauthorized - token expired or invalid
-      if (error.response.status === 401) {
-        console.error('🔐 Authentication failed - redirecting to login');
-        localStorage.removeItem(STORAGE_KEYS.TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER);
+      if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
     }
-    
     return Promise.reject(error);
   }
 );
 
-
 export const bookingService = {
-  // ✅ Create booking with JSON body
+  /**
+   * ✅ COMPLETE: Create booking with all required fields
+   */
   createBooking: async (bookingData) => {
     try {
-      console.log('🚀 Creating booking with data:', bookingData);
+      const tokenKey = STORAGE_KEYS.TOKEN;
+      const token = localStorage.getItem(tokenKey);
       
-      // Check if user is authenticated
-      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
       if (!token) {
         throw new Error('Authentication required. Please login first.');
       }
-      
-      // ✅ Validate required fields
-      if (!bookingData.vehicleId) {
-        throw new Error('Vehicle ID is required');
-      }
-      if (!bookingData.startDate) {
-        throw new Error('Start date is required');
-      }
-      if (!bookingData.endDate) {
-        throw new Error('End date is required');
-      }
-      if (!bookingData.finalAmount || bookingData.finalAmount <= 0) {
-        throw new Error('Final amount must be greater than 0');
-      }
-      
-      // ✅ Create JSON payload
-      const requestPayload = {
-        vehicleId: parseInt(bookingData.vehicleId),
-        customerId: parseInt(bookingData.customerId || 33),
-        
-        startDate: bookingData.startDate instanceof Date 
-          ? bookingData.startDate.toISOString() 
-          : new Date(bookingData.startDate).toISOString(),
-        endDate: bookingData.endDate instanceof Date 
-          ? bookingData.endDate.toISOString() 
-          : new Date(bookingData.endDate).toISOString(),
-        startDate1: bookingData.startDate instanceof Date 
-          ? bookingData.startDate.toISOString().split('T')[0] 
-          : bookingData.startDate,
-        endDate1: bookingData.endDate instanceof Date 
-          ? bookingData.endDate.toISOString().split('T')[0] 
-          : bookingData.endDate,
-        
-        charges: parseFloat(bookingData.charges || bookingData.subtotal || 1000),
-        finalAmount: parseFloat(bookingData.finalAmount),
-        advanceAmount: parseFloat(bookingData.advanceAmount || bookingData.deposit || 1000),
-        gst: parseFloat(bookingData.gst || 0),
-        totalCharges: parseFloat(bookingData.totalCharges || bookingData.finalAmount),
-        
-        bookingStatus: 1,
-        paymentStatus: bookingData.paymentStatus || 'PENDING',
-        paymentType: bookingData.paymentType === 'online' ? 2 : 1,
-        
-        address: bookingData.address || bookingData.deliveryAddress || bookingData.storeName || 'N/A',
-        addressType: bookingData.addressType || (bookingData.pickupMode === 'delivery' ? 'Delivery' : 'Self Pickup'),
-        deliveryType: bookingData.deliveryType || (bookingData.pickupMode === 'delivery' ? 'Home Delivery' : null),
-        pickupLocationId: parseInt(bookingData.pickupLocationId || 1),
-        dropLocationId: parseInt(bookingData.dropLocationId || 1),
-        
-        totalHours: parseFloat(bookingData.totalHours || 0),
-        additionalHours: parseFloat(bookingData.additionalHours || 0),
-        additionalCharges: parseFloat(bookingData.additionalCharges || 0),
-        additionalChargesDetails: bookingData.additionalChargesDetails || null,
-        couponCode: bookingData.couponCode || null,
-        couponId: parseInt(bookingData.couponId || 0),
-        couponAmount: parseFloat(bookingData.couponAmount || 0),
-        deliveryCharges: parseFloat(bookingData.deliveryCharges || 0),
-        km: parseFloat(bookingData.km || 0),
-        lateFeeCharges: parseInt(bookingData.lateFeeCharges || 0),
-        lateEndDate: bookingData.lateEndDate || null,
-        merchantTransactionId: bookingData.merchantTransactionId || null,
-        transactionId: bookingData.transactionId || null,
+
+      // Validate required fields
+      const requiredFields = {
+        vehicleId: 'Vehicle ID',
+        startDate: 'Start date',
+        endDate: 'End date',
+        pickupTime: 'Pickup time',
+        dropoffTime: 'Dropoff time'
       };
-      
-      console.log('📦 Request payload:', requestPayload);
-      
-      const response = await apiClient.post('/api/booking-bikes/create', requestPayload);
-      
-      console.log('✅ Booking created successfully:', response.data);
-      return response.data;
-      
-    } catch (error) {
-      console.error('❌ Error creating booking:', error);
-      
-      if (error.response) {
-        const status = error.response.status;
-        const errorData = error.response.data;
-        
-        if (errorData.errorCode === 'BOOKING_001') {
-          throw new Error('You already have an active booking. Please complete or cancel it first.');
-        } else if (errorData.errorCode === 'BOOKING_002') {
-          throw new Error(errorData.message || 'Document verification failed. Please upload valid documents.');
-        } else if (errorData.errorCode === 'BOOKING_003') {
-          throw new Error(errorData.message || 'Invalid booking data. Please check all fields.');
-        } else if (errorData.errorCode === 'BOOKING_999') {
-          throw new Error('Failed to create booking. Please try again later.');
-        } else if (status === 400) {
-          throw new Error(errorData.message || 'Invalid request data');
-        } else if (status === 401) {
-          throw new Error('Authentication failed. Please login again.');
-        } else if (status === 409) {
-          throw new Error(errorData.message || 'Conflict: Booking already exists');
-        } else if (status === 500) {
-          throw new Error('Server error. Please try again later.');
-        } else {
-          throw new Error(errorData.message || `HTTP ${status}: Unknown error`);
+
+      for (const [field, label] of Object.entries(requiredFields)) {
+        if (!bookingData[field]) {
+          throw new Error(`${label} is required`);
         }
-      } else if (error.request) {
-        throw new Error('Network error: Unable to connect to server. Please check your connection.');
-      } else {
-        throw error;
       }
+
+      // Validate price data
+      if (!bookingData.subtotal || bookingData.subtotal <= 0) {
+        throw new Error('Price calculation required before booking');
+      }
+
+      // Validate duration
+      const start = new Date(`${bookingData.startDate}T${bookingData.pickupTime}`);
+      const end = new Date(`${bookingData.endDate}T${bookingData.dropoffTime}`);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new Error('Invalid date or time format');
+      }
+
+      const totalHours = (end - start) / (1000 * 60 * 60);
+
+      if (totalHours <= 0) {
+        throw new Error('Dropoff time must be after pickup time');
+      }
+
+      if (totalHours < 1) {
+        throw new Error('Minimum rental duration is 1 hour');
+      }
+
+      if (totalHours > 720) {
+        throw new Error('Maximum rental duration is 30 days');
+      }
+
+      // ✅ COMPLETE PAYLOAD: All required fields for backend
+      const requestPayload = {
+        // Vehicle
+        vehicleId: parseInt(bookingData.vehicleId, 10),
+        
+        // ✅ Date fields - Both TIMESTAMP and DATE formats
+        startDate: `${bookingData.startDate}T${bookingData.pickupTime}:00`,
+        endDate: `${bookingData.endDate}T${bookingData.dropoffTime}:00`,
+        startDate1: bookingData.startDate,  // YYYY-MM-DD
+        endDate1: bookingData.endDate,      // YYYY-MM-DD
+        
+        // ✅ Price fields (required by backend validation)
+        charges: parseFloat(bookingData.subtotal) || 0,
+        gst: parseFloat(bookingData.gst) || 0,
+        totalCharges: parseFloat(bookingData.totalCharges) || parseFloat(bookingData.subtotal),
+        finalAmount: parseFloat(bookingData.finalAmount) || parseFloat(bookingData.total),
+        advanceAmount: parseFloat(bookingData.deposit) || 0,
+        
+        // ✅ Duration
+        totalHours: parseFloat(totalHours.toFixed(2)),
+        additionalHours: 0,
+        
+        // Payment
+        paymentType: bookingData.paymentType || 1,
+        paymentStatus: bookingData.paymentStatus || 'PENDING',
+        
+        // Address
+        addressType: bookingData.addressType || 'Self Pickup',
+        address: bookingData.address || '',
+        deliveryType: bookingData.addressType === 'Delivery' ? 'Home Delivery' : null,
+        
+        // Locations
+        pickupLocationId: parseInt(bookingData.pickupLocationId) || 1,
+        dropLocationId: parseInt(bookingData.dropLocationId) || 1,
+        
+        // Coupon
+        couponCode: bookingData.couponCode || null,
+        couponId: bookingData.couponCode ? (parseInt(bookingData.couponId) || 0) : 0,
+        couponAmount: parseFloat(bookingData.couponAmount) || 0,
+        
+        // Additional charges
+        additionalCharges: 0,
+        additionalChargesDetails: null,
+        deliveryCharges: 0,
+        
+        // Other
+        km: 0,
+        lateFeeCharges: 0,
+        lateEndDate: null,
+        merchantTransactionId: null,
+        transactionId: null,
+        bookingStatus: bookingData.bookingStatus || 1
+      };
+
+      const response = await apiClient.post('/api/booking-bikes/create', requestPayload);
+      return response.data;
+
+    } catch (error) {
+      if (error.response) {
+        const errorData = error.response.data;
+        const status = error.response.status;
+
+        const errorMessages = {
+          'BOOKING_001': 'You already have an active booking. Please complete or cancel it first.',
+          'BOOKING_002': errorData.message || 'Document verification required.',
+          'BOOKING_003': errorData.message || 'Invalid booking data.'
+        };
+
+        if (errorData.errorCode && errorMessages[errorData.errorCode]) {
+          throw new Error(errorMessages[errorData.errorCode]);
+        }
+
+        const statusMessages = {
+          400: errorData.message || 'Invalid request data',
+          401: 'Authentication failed. Please login again.',
+          403: 'You do not have permission to perform this action.',
+          404: 'Vehicle not found',
+          409: errorData.message || 'Booking conflict detected',
+          500: errorData.message || 'Server error. Please try again later.'
+        };
+
+        if (statusMessages[status]) {
+          throw new Error(statusMessages[status]);
+        }
+
+        throw new Error(errorData.message || `Booking failed with status ${status}`);
+      }
+
+      if (error.request) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+
+      throw error;
     }
   },
 
-
-  // ✅ Get all bookings
-  getAllBookings: async () => {
+  /**
+   * Verify Razorpay payment
+   */
+  verifyPayment: async (paymentData) => {
     try {
-      console.log('📋 Fetching all bookings...');
-      const response = await apiClient.get('/api/booking-bikes/allBooking');
-      console.log('✅ Bookings fetched:', response.data?.length || 0, 'bookings');
+      const response = await apiClient.post('/api/payments/verify', paymentData);
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching bookings:', error);
+      throw new Error(error.response?.data?.message || 'Payment verification failed');
+    }
+  },
+
+  /**
+   * Get all bookings
+   */
+  getAllBookings: async () => {
+    try {
+      const response = await apiClient.get('/api/booking-bikes/allBooking');
+      return response.data;
+    } catch (error) {
       throw new Error('Failed to fetch bookings');
     }
   },
 
-
-  // ✅ Get bookings by customer
-  getBookingsByCustomer: async (customerId, options = {}) => {
+  /**
+   * Get bookings by customer
+   */
+  getBookingsByCustomer: async (customerId, page = 0, size = 10, sortBy = 'latest') => {
     try {
-      const { page = 0, size = 10, sortBy = 'latest' } = options;
-      console.log(`📋 Fetching bookings for customer ${customerId}`);
-      
-      const params = { customerId, page, size, sortBy };
-      const response = await apiClient.get('/api/booking-bikes/by-customer', { params });
-      
-      console.log('✅ Customer bookings fetched:', response.data?.length || 0);
+      const response = await apiClient.get('/api/booking-bikes/by-customer', {
+        params: { customerId, page, size, sortBy }
+      });
+
+      if (response.data && Array.isArray(response.data)) {
+        response.data = response.data.map(booking => ({
+          ...booking,
+          durationDisplay: formatDuration(booking.totalHours)
+        }));
+      }
+
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching customer bookings:', error);
-      throw new Error('Failed to fetch your bookings');
+      throw new Error('Failed to fetch bookings');
     }
   },
 
-
-  // ✅ Get booking by ID
+  /**
+   * Get booking by ID
+   */
   getBookingById: async (id) => {
     try {
-      console.log('🔍 Fetching booking by ID:', id);
       const response = await apiClient.get(`/api/booking-bikes/getById/${id}`);
-      console.log('✅ Booking fetched successfully');
+
+      if (response.data && response.data.totalHours) {
+        response.data.durationDisplay = formatDuration(response.data.totalHours);
+      }
+
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching booking:', error);
       throw new Error('Booking not found');
     }
   },
 
-
-  // ✅ Accept booking
+  /**
+   * Accept booking
+   */
   acceptBooking: async (bookingId) => {
     try {
-      console.log('✅ Accepting booking:', bookingId);
       const response = await apiClient.post(`/api/booking-bikes/${bookingId}/accept`);
-      console.log('✅ Booking accepted');
       return response.data;
     } catch (error) {
-      console.error('❌ Error accepting booking:', error);
-      throw new Error('Failed to accept booking');
+      throw new Error(error.response?.data?.message || 'Failed to accept booking');
     }
   },
 
-
-  // ✅ FIXED: Start Trip (with 4 images)
-  startTrip: async (bookingId, images) => {
+  /**
+   * ✅ UPDATED: Start trip with images and kilometer reading
+   */
+  startTrip: async (bookingId, images, startTripKm) => {
     try {
-      console.log('🚗 START_TRIP - Booking:', bookingId, 'Images:', images.length);
-
+      console.log('🚗 START_TRIP Service - Booking:', bookingId, 'Images:', images.length, 'KM:', startTripKm);
+      
+      // Validate inputs
+      if (!bookingId) {
+        throw new Error('Booking ID is required');
+      }
+      
+      if (!images || images.length !== 4) {
+        throw new Error('All 4 bike images are required');
+      }
+      
+      if (!startTripKm || startTripKm <= 0) {
+        throw new Error('Valid kilometer reading is required');
+      }
 
       const formData = new FormData();
+      
+      // Append all 4 images
       images.forEach((image, index) => {
-        formData.append('images', image);
-        console.log(`📷 Image ${index + 1}:`, image.name, image.size);
+        if (image) {
+          formData.append('images', image);
+        }
       });
+      
+      // Append kilometer reading
+      formData.append('startTripKm', startTripKm.toString());
 
+      console.log('🚗 START_TRIP FormData - Images count:', images.length, 'KM:', startTripKm);
 
-      // ✅ Use apiClient instead of api
       const response = await apiClient.post(
         `/api/booking-bikes/${bookingId}/start`,
         formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+        { 
+          headers: { 
+            'Content-Type': 'multipart/form-data' 
+          } 
         }
       );
 
-
-      console.log('✅ START_TRIP - Success:', response.data);
+      console.log('🚗 START_TRIP Response:', response.data);
       return response.data;
+
     } catch (error) {
-      console.error('💥 START_TRIP - Error:', error.response?.data || error.message);
-      throw error;
+      console.error('💥 START_TRIP Service Error:', error);
+      
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      
+      throw new Error(error.message || 'Failed to start trip');
     }
   },
 
-
-  // ✅ FIXED: End Trip (with 4 images)
-  endTrip: async (bookingId, images) => {
+  /**
+   * ✅ UPDATED: End trip with images and kilometer reading
+   */
+  endTrip: async (bookingId, images, endTripKm) => {
     try {
-      console.log('🏁 END_TRIP - Booking:', bookingId, 'Images:', images.length);
-
+      console.log('🏁 END_TRIP Service - Booking:', bookingId, 'Images:', images.length, 'KM:', endTripKm);
+      
+      // Validate inputs
+      if (!bookingId) {
+        throw new Error('Booking ID is required');
+      }
+      
+      if (!images || images.length !== 4) {
+        throw new Error('All 4 bike images are required');
+      }
+      
+      if (!endTripKm || endTripKm <= 0) {
+        throw new Error('Valid kilometer reading is required');
+      }
 
       const formData = new FormData();
+      
+      // Append all 4 images
       images.forEach((image, index) => {
-        formData.append('images', image);
-        console.log(`📷 Image ${index + 1}:`, image.name, image.size);
+        if (image) {
+          formData.append('images', image);
+        }
       });
+      
+      // Append kilometer reading
+      formData.append('endTripKm', endTripKm.toString());
 
+      console.log('🏁 END_TRIP FormData - Images count:', images.length, 'KM:', endTripKm);
 
-      // ✅ Use apiClient instead of api
       const response = await apiClient.post(
         `/api/booking-bikes/${bookingId}/end`,
         formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+        { 
+          headers: { 
+            'Content-Type': 'multipart/form-data' 
+          } 
         }
       );
 
-
-      console.log('✅ END_TRIP - Success:', response.data);
+      console.log('🏁 END_TRIP Response:', response.data);
       return response.data;
+
     } catch (error) {
-      console.error('💥 END_TRIP - Error:', error.response?.data || error.message);
-      throw error;
+      console.error('💥 END_TRIP Service Error:', error);
+      
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      
+      throw new Error(error.message || 'Failed to end trip');
     }
   },
 
-
-  // ✅ NEW: Get Vehicle Documents
+  /**
+   * Get vehicle documents
+   */
   getVehicleDocuments: async (vehicleId) => {
     try {
-      console.log('📄 GET_VEHICLE_DOCUMENTS - Vehicle ID:', vehicleId);
-      
-      // Validate vehicleId
       if (!vehicleId) {
         throw new Error('Vehicle ID is required');
       }
-      
+
       const response = await apiClient.get(`/api/bikes/view-documents/${vehicleId}`);
-      
-      console.log('✅ GET_VEHICLE_DOCUMENTS - Success:', response.data);
       return response.data;
-      
+
     } catch (error) {
-      console.error('💥 GET_VEHICLE_DOCUMENTS - Error:', error.response?.data || error.message);
-      
-      if (error.response) {
-        const status = error.response.status;
-        const errorData = error.response.data;
-        
-        if (status === 404) {
-          throw new Error('Vehicle documents not found');
-        } else if (status === 401) {
-          throw new Error('Authentication required to view documents');
-        } else if (status === 403) {
-          throw new Error('You do not have permission to view these documents');
-        } else if (status === 500) {
-          throw new Error('Server error while fetching documents');
-        } else {
-          throw new Error(errorData.message || 'Failed to fetch vehicle documents');
-        }
-      } else if (error.request) {
-        throw new Error('Network error: Unable to connect to server');
-      } else {
-        throw error;
+      if (error.response?.status === 404) {
+        throw new Error('Vehicle documents not found');
+      } else if (error.response?.status === 403) {
+        throw new Error('Permission denied');
       }
+      throw new Error('Failed to fetch documents');
     }
   },
 
-
-  // ✅ Cancel booking
+  /**
+   * Cancel booking
+   */
   cancelBooking: async (bookingId, cancelledBy = 'USER') => {
     try {
-      console.log('❌ Cancelling booking:', bookingId);
       const response = await apiClient.post(
         `/api/booking-bikes/${bookingId}/cancel`,
         null,
         { params: { cancelledBy } }
       );
-      console.log('✅ Booking cancelled');
       return response.data;
     } catch (error) {
-      console.error('❌ Error cancelling booking:', error);
-      throw new Error('Failed to cancel booking');
+      throw new Error(error.response?.data?.message || 'Failed to cancel booking');
     }
   },
 
-
-  // ✅ Complete booking
+  /**
+   * Complete booking
+   */
   completeBooking: async (bookingId) => {
     try {
-      console.log('🏁 Completing booking:', bookingId);
       const response = await apiClient.post(`/api/booking-bikes/${bookingId}/complete`);
-      console.log('✅ Booking completed');
       return response.data;
     } catch (error) {
-      console.error('❌ Error completing booking:', error);
-      throw new Error('Failed to complete booking');
+      throw new Error(error.response?.data?.message || 'Failed to complete booking');
     }
   },
 
-
-  // ✅ Get invoice
+  /**
+   * Get invoice
+   */
   getInvoice: async (bookingId) => {
     try {
-      console.log('📄 Fetching invoice for booking:', bookingId);
       const response = await apiClient.get(
         `/api/booking-bikes/${bookingId}/invoice`,
         { responseType: 'blob' }
       );
-      console.log('✅ Invoice fetched');
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching invoice:', error);
       throw new Error('Failed to fetch invoice');
     }
+  },
+
+  /**
+   * Validate booking dates
+   */
+  validateBookingDates: (startDate, endDate, pickupTime, dropoffTime) => {
+    const start = new Date(`${startDate}T${pickupTime}`);
+    const end = new Date(`${endDate}T${dropoffTime}`);
+    const now = new Date();
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Invalid date or time format');
+    }
+
+    if (start < now) {
+      throw new Error('Start date and time cannot be in the past');
+    }
+
+    if (end <= start) {
+      throw new Error('End date and time must be after start date and time');
+    }
+
+    const diffInHours = (end - start) / (1000 * 60 * 60);
+
+    if (diffInHours < 1) {
+      throw new Error('Minimum rental duration is 1 hour');
+    }
+
+    if (diffInHours > 720) {
+      throw new Error('Maximum rental duration is 30 days');
+    }
+
+    return Math.ceil(diffInHours);
+  },
+
+  /**
+   * Calculate rental price
+   */
+  calculateRentalPrice: (hourlyRate, totalHours) => {
+    if (!hourlyRate || !totalHours) return 0;
+    return Math.round(hourlyRate * totalHours);
+  },
+
+  /**
+   * Format price
+   */
+  formatPrice: (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0
+    }).format(amount || 0);
   }
 };
 
+/**
+ * Format duration helper
+ */
+const formatDuration = (hours) => {
+  if (!hours || hours <= 0) return 'N/A';
+
+  if (hours < 24) {
+    const roundedHours = Math.round(hours);
+    return `${roundedHours} hour${roundedHours !== 1 ? 's' : ''}`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = Math.round(hours % 24);
+
+  if (remainingHours === 0) {
+    return `${days} day${days !== 1 ? 's' : ''}`;
+  }
+
+  return `${days}d ${remainingHours}h`;
+};
 
 export default bookingService;

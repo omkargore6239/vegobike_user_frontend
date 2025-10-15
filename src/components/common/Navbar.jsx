@@ -1,5 +1,5 @@
-// components/common/Navbar.jsx - Fixed infinite loop + Profile in navbar
-import React, { useState, useEffect, useRef } from 'react';
+// components/common/Navbar.jsx - WITH SERVICE HISTORY BUTTON
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { STORAGE_KEYS } from '../../utils/constants';
@@ -7,7 +7,8 @@ import {
   UserIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 
 const Navbar = () => {
@@ -18,14 +19,14 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // ✅ FIXED: Removed Rental from navigation
+  // Navigation items
   const navigation = [
-    { name: 'Servicing', href: '/servicing', icon: '🔧' },
-    { name: 'Spare Parts', href: '/spareparts', icon: '🔩' },
-    { name: 'Buy/Sell', href: '/buysell', icon: '💰' },
+    { name: 'Servicing', href: '/servicing' },
+    { name: 'Spare Parts', href: '/spareparts'},
+    { name: 'Buy/Sell', href: '/buysell' },
   ];
 
-  // ✅ FIXED: Load user data ONCE on mount and when context changes (no interval)
+  // Load user from storage
   useEffect(() => {
     const loadUserFromStorage = () => {
       try {
@@ -45,7 +46,7 @@ const Navbar = () => {
     };
 
     loadUserFromStorage();
-  }, [contextUser, isAuthenticated]); // ✅ Only reload when context changes
+  }, [contextUser, isAuthenticated]);
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -67,7 +68,6 @@ const Navbar = () => {
     }
   };
 
-  // ✅ Get user display name
   const getUserDisplayName = () => {
     const user = currentUser || contextUser;
     if (!user) return 'Guest';
@@ -83,7 +83,6 @@ const Navbar = () => {
     return 'User';
   };
 
-  // ✅ Get user initials for avatar
   const getUserInitials = () => {
     const user = currentUser || contextUser;
     const displayName = getUserDisplayName();
@@ -98,7 +97,6 @@ const Navbar = () => {
     return displayName.substring(0, 2).toUpperCase();
   };
 
-  // ✅ Get user profile image
   const getUserProfileImage = () => {
     const user = currentUser || contextUser;
     return user?.profile || user?.profileImage || null;
@@ -115,7 +113,7 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center group">
             <div className="text-2xl font-bold text-indigo-600 group-hover:text-indigo-700 transition-colors duration-200 flex items-center">
-              <span className="text-3xl mr-2">🚲</span>
+              {/* <span className="text-3xl mr-2">🚲</span> */}
               VegoBike
             </div>
           </Link>
@@ -136,6 +134,7 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
+
           </div>
 
           {/* Desktop Right Side - Profile or Login */}
@@ -147,7 +146,7 @@ const Navbar = () => {
               </div>
             ) : isAuthenticated && user ? (
               <>
-                {/* ✅ Profile Link - Directly visible */}
+                {/* Profile Link */}
                 <Link
                   to="/profile"
                   className={`flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
@@ -156,7 +155,6 @@ const Navbar = () => {
                       : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300'
                   }`}
                 >
-                  {/* Profile Avatar */}
                   {profileImage ? (
                     <img
                       src={profileImage}
@@ -169,13 +167,28 @@ const Navbar = () => {
                     </div>
                   )}
                   
-                  {/* User Name */}
                   <span className="font-medium max-w-32 truncate">
                     {getUserDisplayName()}
                   </span>
                   
                   <UserIcon className="h-5 w-5" />
                 </Link>
+
+                
+            {/* ✅ NEW: Service History Button (Desktop) */}
+            {isAuthenticated && user && (
+              <Link
+                to="/service-history"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center ${
+                  location.pathname === '/service-history'
+                    ? 'bg-green-600 text-white shadow-md scale-105'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600 hover:scale-105 border border-green-200'
+                }`}
+              >
+                <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                Service History
+              </Link>
+            )}
 
                 {/* Logout Button */}
                 <button
@@ -242,6 +255,22 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
+
+            {/* ✅ NEW: Service History Button (Mobile) */}
+            {isAuthenticated && user && (
+              <Link
+                to="/service-history"
+                className={`flex items-center px-4 py-3 rounded-lg text-base font-medium transition-colors ${
+                  location.pathname === '/service-history'
+                    ? 'bg-green-600 text-white'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600 border border-green-200'
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <ClipboardDocumentListIcon className="h-6 w-6 mr-3" />
+                Service History
+              </Link>
+            )}
             
             {/* Mobile User Section */}
             <div className="pt-4 border-t border-gray-200">
@@ -253,7 +282,7 @@ const Navbar = () => {
               ) : isAuthenticated && user ? (
                 <div className="space-y-2">
                   
-                  {/* ✅ Mobile Profile Link */}
+                  {/* Mobile Profile Link */}
                   <Link
                     to="/profile"
                     className={`flex items-center px-4 py-3 rounded-lg text-base font-medium transition-colors ${

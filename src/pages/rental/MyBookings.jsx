@@ -388,63 +388,69 @@ const MyBookings = () => {
     return customerId;
   };
 
-  const fetchBookings = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const customerId = getCustomerId();
-      
-      if (!customerId) {
-        setError('Customer ID not found. Please login again.');
-        setLoading(false);
-        return;
-      }
-      
-      const response = await bookingService.getAllBookings();
-      const allBookings = Array.isArray(response) ? response : response.data || [];
-      
-      const customerBookings = allBookings.filter(b => {
-        const bookingCustomerId = parseInt(b.customerId);
-        const currentCustomerId = parseInt(customerId);
-        return bookingCustomerId === currentCustomerId;
-      });
-      
-      console.log('📋 Customer bookings with status:', customerBookings.map(b => ({ id: b.bookingId, status: b.status })));
-      
-      const sortedBookings = [...customerBookings].sort((a, b) => {
-        if (sortBy === 'latest') return b.id - a.id;
-        if (sortBy === 'oldest') return a.id - b.id;
-        if (sortBy === 'amount') return (b.finalAmount || 0) - (a.finalAmount || 0);
-        return 0;
-      });
-      
-      const latestBookingStr = localStorage.getItem('latestBooking');
-      if (latestBookingStr) {
-        try {
-          const latestBooking = JSON.parse(latestBookingStr);
-          const existsInFetched = sortedBookings.some(b => 
-            b.id === latestBooking.id || b.bookingId === latestBooking.bookingId
-          );
-          if (!existsInFetched) {
-            sortedBookings.unshift(latestBooking);
-          }
-          localStorage.removeItem('latestBooking');
-        } catch (parseError) {
-          localStorage.removeItem('latestBooking');
-        }
-      }
-      
-      setBookings(sortedBookings);
-      setTotalPages(Math.ceil(sortedBookings.length / pageSize));
-      
-    } catch (error) {
-      console.error('💥 FETCH_BOOKINGS - Error:', error);
-      setError('Failed to load bookings. Please try again.');
-    } finally {
+  // ✅ UPDATED: fetchBookings function in MyBookings.jsx
+const fetchBookings = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const customerId = getCustomerId();
+    
+    if (!customerId) {
+      setError('Customer ID not found. Please login again.');
       setLoading(false);
+      return;
     }
-  };
+    
+    // ✅ CHANGED: Use the by-customer endpoint instead of allBooking
+    const response = await bookingService.getBookingsByCustomer(
+      customerId, 
+      currentPage - 1, // Backend uses 0-based indexing
+      pageSize, 
+      sortBy
+    );
+    
+    const customerBookings = Array.isArray(response) ? response : response.data || [];
+    
+    console.log('📋 Customer bookings with status:', customerBookings.map(b => ({ 
+      id: b.bookingId, 
+      status: b.status 
+    })));
+    
+    const sortedBookings = [...customerBookings].sort((a, b) => {
+      if (sortBy === 'latest') return b.id - a.id;
+      if (sortBy === 'oldest') return a.id - b.id;
+      if (sortBy === 'amount') return (b.finalAmount || 0) - (a.finalAmount || 0);
+      return 0;
+    });
+    
+    const latestBookingStr = localStorage.getItem('latestBooking');
+    if (latestBookingStr) {
+      try {
+        const latestBooking = JSON.parse(latestBookingStr);
+        const existsInFetched = sortedBookings.some(b => 
+          b.id === latestBooking.id || b.bookingId === latestBooking.bookingId
+        );
+        if (!existsInFetched) {
+          sortedBookings.unshift(latestBooking);
+        }
+        localStorage.removeItem('latestBooking');
+      } catch (parseError) {
+        localStorage.removeItem('latestBooking');
+      }
+    }
+    
+    setBookings(sortedBookings);
+    setTotalPages(Math.ceil(sortedBookings.length / pageSize));
+    
+  } catch (error) {
+    console.error('💥 FETCH_BOOKINGS - Error:', error);
+    setError('Failed to load bookings. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const showNotification = (type, title, message) => {
     setAlertData({ type, title, message });
@@ -478,43 +484,59 @@ const MyBookings = () => {
     setTripType(null);
   };
 
-  const handleStartTrip = async (bookingId, images) => {
-    try {
-      console.log('🚗 START_TRIP - Booking:', bookingId, 'Images:', images.length);
-      const response = await bookingService.startTrip(bookingId, images);
-      console.log('🚗 START_TRIP - Response:', response);
-      
-      showNotification('success', '🚗 Trip Started!', 'Your trip has been started successfully');
-      handleCloseTripModal();
-      
-      setTimeout(() => {
-        fetchBookings();
-      }, 1000);
-    } catch (error) {
-      console.error('💥 START_TRIP - Error:', error);
-      showNotification('error', '❌ Error!', error.response?.data?.message || 'Failed to start trip');
-      throw error;
+  // ✅ CORRECTED: Trip Management Handlers with Kilometer Support
+const handleStartTrip = async (bookingId, images, startTripKm) => {
+  try {
+    console.log('🚗 START_TRIP MyBookings - Booking:', bookingId, 'Images:', images.length, 'KM:', startTripKm);
+    
+    // Validate kilometer parameter
+    if (!startTripKm || startTripKm <= 0) {
+      showNotification('error', '❌ Error!', 'Please enter a valid kilometer reading');
+      return;
     }
-  };
+    
+    const response = await bookingService.startTrip(bookingId, images, startTripKm);
+    console.log('🚗 START_TRIP - Response:', response);
+    
+    showNotification('success', '🚗 Trip Started!', `Your trip has been started at ${startTripKm} KM`);
+    handleCloseTripModal();
+    
+    setTimeout(() => {
+      fetchBookings();
+    }, 1000);
+  } catch (error) {
+    console.error('💥 START_TRIP MyBookings - Error:', error);
+    showNotification('error', '❌ Error!', error.message || 'Failed to start trip');
+    throw error;
+  }
+};
 
-  const handleEndTrip = async (bookingId, images) => {
-    try {
-      console.log('🏁 END_TRIP - Booking:', bookingId, 'Images:', images.length);
-      const response = await bookingService.endTrip(bookingId, images);
-      console.log('🏁 END_TRIP - Response:', response);
-      
-      showNotification('success', '🏁 Trip Ended!', 'Your trip has been completed successfully');
-      handleCloseTripModal();
-      
-      setTimeout(() => {
-        fetchBookings();
-      }, 1000);
-    } catch (error) {
-      console.error('💥 END_TRIP - Error:', error);
-      showNotification('error', '❌ Error!', error.response?.data?.message || 'Failed to end trip');
-      throw error;
+const handleEndTrip = async (bookingId, images, endTripKm) => {
+  try {
+    console.log('🏁 END_TRIP MyBookings - Booking:', bookingId, 'Images:', images.length, 'KM:', endTripKm);
+    
+    // Validate kilometer parameter
+    if (!endTripKm || endTripKm <= 0) {
+      showNotification('error', '❌ Error!', 'Please enter a valid kilometer reading');
+      return;
     }
-  };
+    
+    const response = await bookingService.endTrip(bookingId, images, endTripKm);
+    console.log('🏁 END_TRIP - Response:', response);
+    
+    showNotification('success', '🏁 Trip Ended!', `Your trip has been completed at ${endTripKm} KM`);
+    handleCloseTripModal();
+    
+    setTimeout(() => {
+      fetchBookings();
+    }, 1000);
+  } catch (error) {
+    console.error('💥 END_TRIP MyBookings - Error:', error);
+    showNotification('error', '❌ Error!', error.message || 'Failed to end trip');
+    throw error;
+  }
+};
+
 
   // View Documents Handler
   const handleViewDocuments = async (vehicleId) => {
