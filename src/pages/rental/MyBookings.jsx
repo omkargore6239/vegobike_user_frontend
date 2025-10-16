@@ -17,53 +17,6 @@ const ModernAlert = ({ show, onClose, type, title, message, autoClose = true }) 
 
   if (!show) return null;
 
-  // ✅ ADD: Document Verification Warning Modal Component
-const DocumentVerificationModal = ({ show, onClose, onRedirect }) => {
-  if (!show) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-md mx-4 overflow-hidden animate-zoom-bounce-in">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-50 via-orange-50 to-red-100"></div>
-        
-        <div className="relative p-8 text-center">
-          {/* Warning Icon */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20"></div>
-            <div className="relative w-20 h-20 bg-gradient-to-br from-red-500 to-orange-600 rounded-full flex items-center justify-center mx-auto shadow-lg animate-bounce-scale">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-          </div>
-          
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">🚫 Documents Not Verified</h2>
-          <p className="text-gray-600 leading-relaxed mb-6">
-            You need to upload and verify your documents before starting a trip. 
-            Please upload your Aadhaar Card and Driving License to proceed.
-          </p>
-          
-          <div className="flex flex-col gap-3">
-            <button 
-              onClick={onRedirect}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
-            >
-              📄 Upload Documents
-            </button>
-            <button 
-              onClick={onClose}
-              className="bg-gray-100 text-gray-700 px-8 py-3 rounded-2xl font-bold hover:bg-gray-200 transition-all"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
   const getAlertStyles = () => {
     switch (type) {
       case 'success':
@@ -673,11 +626,15 @@ const handleEndTrip = async (bookingId, images, endTripKm) => {
   };
 
   const canCancelBooking = (booking) => {
-    const status = booking.status?.toLowerCase();
-    return status === 'confirmed' || 
-           status === 'accepted' || 
-           status === 'booking accepted';
-  };
+  const status = booking.status?.toLowerCase();
+  return (status === 'confirmed' || 
+          status === 'accepted' || 
+          status === 'booking accepted') &&
+         status !== 'started' && 
+         status !== 'trip started' && 
+         status !== 'start trip';
+};
+
 
   const canShowStartTrip = (booking) => {
     const status = booking.status?.toLowerCase();
@@ -859,48 +816,48 @@ const handleEndTrip = async (bookingId, images, endTripKm) => {
                       </div>
 
                       {/* ✅ UPDATED: Compact Actions with smaller buttons */}
-                      <div className="flex flex-col gap-1.5">
-                        {/* Cancel Button */}
-                        {canCancelBooking(booking) && (
-                          <button 
-                            onClick={() => handleCancelBooking(booking.id)} 
-                            className="w-full bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
-                          >
-                            Cancel Booking
-                          </button>
-                        )}
-                        
-                        {/* Start Trip Button */}
-                        {canShowStartTrip(booking) && (
-                          <button
-                            onClick={() => handleOpenTripModal(booking, 'start')}
-                            className="w-full bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"
-                          >
-                            Start Trip
-                          </button>
-                        )}
-                        
-                        {/* ✅ NEW: End Trip and View Documents side by side */}
-                        {canShowEndTrip(booking) && (
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {/* End Trip Button - LEFT */}
+                      {/* ✅ CORRECTED: Actions with proper conditions */}
+                        <div className="flex flex-col gap-1.5">
+                          {/* Start Trip Button - Shows ONLY for Accepted status */}
+                          {canShowStartTrip(booking) && !canShowEndTrip(booking) && (
                             <button
-                              onClick={() => handleOpenTripModal(booking, 'end')}
-                              className="bg-red-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
+                              onClick={() => handleOpenTripModal(booking, 'start')}
+                              className="w-full bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"
                             >
-                              End Trip
+                              Start Trip
                             </button>
-                            
-                            {/* View Documents Button - RIGHT */}
-                            <button
-                              onClick={() => handleViewDocuments(booking.vehicleId)}
-                              className="bg-blue-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-all"
+                          )}
+                          
+                          {/* Cancel Button - Shows ONLY when Start Trip is NOT available */}
+                          {canCancelBooking(booking) && !canShowStartTrip(booking) && (
+                            <button 
+                              onClick={() => handleCancelBooking(booking.id)} 
+                              className="w-full bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
                             >
-                              View Documents
+                              Cancel Booking
                             </button>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                          
+                          {/* End Trip and View Documents side by side */}
+                          {canShowEndTrip(booking) && (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <button
+                                onClick={() => handleOpenTripModal(booking, 'end')}
+                                className="bg-red-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"
+                              >
+                                End Trip
+                              </button>
+                              
+                              <button
+                                onClick={() => handleViewDocuments(booking.vehicleId)}
+                                className="bg-blue-600 text-white px-2 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-all"
+                              >
+                                View Documents
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
                     </div>
                   </div>
                 </div>
