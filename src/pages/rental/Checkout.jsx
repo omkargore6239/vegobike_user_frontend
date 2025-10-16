@@ -255,6 +255,191 @@ export default function RentalCheckout() {
     calculatePrice();
   }, [bookingData, durationInfo, isValidBooking, priceRates, depositAmount]);
 
+  // ✅ NEW: Check documents AFTER booking is created
+// ✅ NEW: Check documents AFTER booking is created
+const checkDocumentsAfterBooking = async (bookingResponse) => {
+  try {
+    const customerId = user?.id || user?.data?.id || user?.userId;
+    
+    if (!customerId) {
+      // If no user ID, just show success and navigate
+      showNotification('Booking created successfully!', 'success');
+      setTimeout(() => {
+        navigate(ROUTES.RENTAL + '/my-bookings', {
+          state: { newBooking: bookingResponse, showSuccess: true },
+          replace: true
+        });
+      }, 1500);
+      return;
+    }
+
+    console.log('📄 Checking documents for user:', customerId);
+    const docStatus = await bookingService.checkDocumentVerification(customerId);
+    
+    console.log('📄 Document status:', docStatus);
+
+    // ✅ CASE 1: No documents uploaded
+    if (!docStatus.uploaded) {
+      const confirmed = window.confirm(
+        '✅ Booking Created Successfully!\n\n' +
+        '⚠️ Documents Required for Admin Approval:\n\n' +
+        'To get admin approval, please upload:\n' +
+        '• Aadhaar Card (Front & Back)\n' +
+        '• Driving License\n\n' +
+        'Admin can only accept your booking after document verification.\n\n' +
+        'Click OK to upload documents now, or Cancel to upload later.'
+      );
+      
+      if (confirmed) {
+        navigate('/document-verification', {
+          state: { 
+            fromBooking: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id
+          }
+        });
+      } else {
+        navigate(ROUTES.RENTAL + '/my-bookings', {
+          state: { 
+            newBooking: bookingResponse,
+            showSuccess: true,
+            showDocumentWarning: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id 
+          },
+          replace: true
+        });
+      }
+      return;
+    }
+
+    // ✅ CASE 2: Documents rejected
+    if (docStatus.rejected) {
+      const confirmed = window.confirm(
+        '✅ Booking Created Successfully!\n\n' +
+        '❌ Some Documents Were Rejected:\n\n' +
+        'Please re-upload the rejected documents.\n' +
+        'Your booking will be approved after document verification.\n\n' +
+        'Click OK to re-upload documents now.'
+      );
+      
+      if (confirmed) {
+        navigate('/document-verification', {
+          state: { 
+            fromBooking: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id
+          }
+        });
+      } else {
+        navigate(ROUTES.RENTAL + '/my-bookings', {
+          state: { 
+            newBooking: bookingResponse,
+            showSuccess: true,
+            showDocumentWarning: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id 
+          },
+          replace: true
+        });
+      }
+      return;
+    }
+
+    // ✅ CASE 3: Documents pending verification
+    if (docStatus.pending) {
+      alert(
+        '✅ Booking Created Successfully!\n\n' +
+        '⏳ Documents Pending Admin Review:\n\n' +
+        'Your documents are being reviewed by our admin team.\n' +
+        'Your booking will be approved after document verification.\n\n' +
+        'This usually takes 24-48 hours.'
+      );
+      
+      navigate(ROUTES.RENTAL + '/my-bookings', {
+        state: { 
+          newBooking: bookingResponse,
+          showSuccess: true,
+          bookingId: bookingResponse.bookingId || bookingResponse.id 
+        },
+        replace: true
+      });
+      return;
+    }
+
+    // ✅ CASE 4: Documents not verified (edge case)
+    if (!docStatus.verified) {
+      const confirmed = window.confirm(
+        '✅ Booking Created Successfully!\n\n' +
+        '⚠️ Document Verification Required:\n\n' +
+        'Please ensure your documents are verified by admin.\n\n' +
+        'Click OK to check your documents now.'
+      );
+      
+      if (confirmed) {
+        navigate('/document-verification', {
+          state: { 
+            fromBooking: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id
+          }
+        });
+      } else {
+        navigate(ROUTES.RENTAL + '/my-bookings', {
+          state: { 
+            newBooking: bookingResponse,
+            showSuccess: true,
+            showDocumentWarning: true,
+            bookingId: bookingResponse.bookingId || bookingResponse.id 
+          },
+          replace: true
+        });
+      }
+      return;
+    }
+
+    // ✅ CASE 5: All documents verified - Normal success
+    showNotification('Booking created successfully!', 'success');
+    setTimeout(() => {
+      navigate(ROUTES.RENTAL + '/my-bookings', {
+        state: { 
+          newBooking: bookingResponse,
+          showSuccess: true,
+          bookingId: bookingResponse.bookingId || bookingResponse.id 
+        },
+        replace: true
+      });
+    }, 1500);
+
+  } catch (error) {
+    console.error('❌ Document check error:', error);
+    
+    // If document check fails, show warning and redirect
+    const confirmed = window.confirm(
+      '✅ Booking Created Successfully!\n\n' +
+      '⚠️ Unable to check document status.\n\n' +
+      'Please ensure your documents are uploaded for admin approval.\n\n' +
+      'Click OK to upload documents now.'
+    );
+    
+    if (confirmed) {
+      navigate('/document-verification', {
+        state: { 
+          fromBooking: true,
+          bookingId: bookingResponse?.bookingId || bookingResponse?.id
+        }
+      });
+    } else {
+      navigate(ROUTES.RENTAL + '/my-bookings', {
+        state: { 
+          newBooking: bookingResponse,
+          showSuccess: true,
+          showDocumentWarning: true,
+          bookingId: bookingResponse?.bookingId || bookingResponse?.id
+        },
+        replace: true
+      });
+    }
+  }
+};
+
+
+
   // Calculate final totals
   const totals = useMemo(() => {
     if (!estimatedPrice) {
@@ -472,57 +657,56 @@ const prepareBookingRequest = () => {
 
   // Handle form submission
   const onSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validation checks
-    if (!paymentMethod) {
-      showNotification('Please select a payment method', 'error');
-      return;
-    }
+  // Validation checks
+  if (!paymentMethod) {
+    showNotification('Please select a payment method', 'error');
+    return;
+  }
 
-    if (!termsAccepted) {
-      showNotification('Please accept terms and conditions', 'error');
-      return;
-    }
+  if (!termsAccepted) {
+    showNotification('Please accept terms and conditions', 'error');
+    return;
+  }
 
-    if (!isValidBooking) {
-      showNotification('Invalid booking data', 'error');
-      return;
-    }
+  if (!isValidBooking) {
+    showNotification('Invalid booking data', 'error');
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      console.log('Creating booking...');
-      const bookingRequest = prepareBookingRequest();
-      console.log('Booking request:', bookingRequest);
+  try {
+    console.log('📋 Creating booking...');
+    const bookingRequest = prepareBookingRequest();
+    console.log('📋 Booking request:', bookingRequest);
+    
+    // ✅ STEP 1: Create booking
+    const bookingResponse = await bookingService.createBooking(bookingRequest);
+    console.log('✅ Booking response:', bookingResponse);
+
+    // ✅ STEP 2: Handle payment based on method
+    if (paymentMethod === 'online' && bookingResponse.razorpayOrderDetails) {
+      console.log('💳 Initiating online payment...');
+      await initializeRazorpay(bookingResponse);
+      // Note: Document check happens after payment success in Razorpay handler
+    } else {
+      console.log('💵 Cash on delivery booking confirmed');
       
-      const bookingResponse = await bookingService.createBooking(bookingRequest);
-      console.log('Booking response:', bookingResponse);
-
-      if (paymentMethod === 'online' && bookingResponse.razorpayOrderDetails) {
-        console.log('Initiating online payment...');
-        await initializeRazorpay(bookingResponse);
-      } else {
-        console.log('Cash on delivery booking confirmed');
-        showNotification('Booking confirmed successfully!', 'success');
-        
-        setTimeout(() => {
-          navigate(ROUTES.RENTAL + '/my-bookings', {
-            state: { newBooking: bookingResponse, showSuccess: true },
-            replace: true
-          });
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Booking submission failed:', error);
-      showNotification(
-        error.message || 'Booking failed. Please try again.', 
-        'error'
-      );
-      setIsLoading(false);
+      // ✅ STEP 3: Check documents AFTER successful booking
+      await checkDocumentsAfterBooking(bookingResponse);
     }
-  };
+  } catch (error) {
+    console.error('❌ Booking submission failed:', error);
+    showNotification(
+      error.message || 'Booking failed. Please try again.', 
+      'error'
+    );
+    setIsLoading(false);
+  }
+};
+
 
   // Format date display
   const formatDateOnly = (date) => {

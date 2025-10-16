@@ -1,7 +1,72 @@
-// services/bookingService.js - COMPLETE & PRODUCTION READY WITH KILOMETER SUPPORT
+// services/bookingService.js - COMPLETE & PRODUCTION READY WITH TOKEN VALIDATION
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8081';
+
+// ✅ ADD: JWT decode function (no external library needed)
+const decodeJWT = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('❌ JWT decode error:', error);
+    return null;
+  }
+};
+
+// ✅ ADD: Check if token is expired
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  
+  try {
+    const decoded = decodeJWT(token);
+    if (!decoded || !decoded.exp) {
+      console.error('❌ Invalid token structure');
+      return true;
+    }
+    
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    const isExpired = decoded.exp < currentTime;
+    
+    if (isExpired) {
+      console.error('❌ Token expired at:', new Date(decoded.exp * 1000));
+      console.error('❌ Current time:', new Date(currentTime * 1000));
+    } else {
+      const minutesUntilExpiry = Math.floor((decoded.exp - currentTime) / 60);
+      console.log('✅ Token valid for', minutesUntilExpiry, 'minutes');
+    }
+    
+    return isExpired;
+  } catch (error) {
+    console.error('❌ Token validation error:', error);
+    return true;
+  }
+};
+
+// ✅ ADD: Clear storage and redirect to login
+const handleAuthError = (message = 'Your session has expired. Please login again.') => {
+  console.error('🚫 Authentication Error:', message);
+  
+  // Clear all auth data
+  localStorage.removeItem('token');
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('auth_user');
+  
+  // Show alert
+  alert(message);
+  
+  // Redirect to login
+  window.location.href = '/login';
+};
 
 // Auto-detect token key
 const detectTokenKey = () => {
@@ -31,49 +96,119 @@ const apiClient = axios.create({
   }
 });
 
-// Request interceptor
+// ✅ UPDATED: Request interceptor - CHECK TOKEN BEFORE EVERY REQUEST
 apiClient.interceptors.request.use(
   (config) => {
     const tokenKey = STORAGE_KEYS.TOKEN;
     const token = localStorage.getItem(tokenKey);
     
     if (token) {
+      // ✅ CHECK: Validate token before using it
+      if (isTokenExpired(token)) {
+        console.error('❌ Token expired - blocking request and redirecting to login');
+        handleAuthError('Your session has expired. Please login again.');
+        return Promise.reject(new Error('Token expired'));
+      }
+      
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Valid token attached to request');
+    } else {
+      console.warn('⚠️ No token found in storage');
     }
     
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor
+// Add refresh token endpoint (if your backend supports it)
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      console.error('❌ No refresh token available');
+      throw new Error('No refresh token available');
+    }
+
+    console.log('🔄 Attempting to refresh token...');
+    const response = await axios.post(`${API_BASE_URL}/api/auth/refreshtoken`, {
+      refreshToken: refreshToken
+    });
+
+    const { accessToken, token } = response.data;
+    const newToken = accessToken || token;
+    
+    if (!newToken) {
+      throw new Error('No token in refresh response');
+    }
+    
+    localStorage.setItem('token', newToken);
+    console.log('✅ Token refreshed successfully');
+    return newToken;
+    
+  } catch (error) {
+    console.error('❌ Token refresh failed:', error);
+    handleAuthError('Session expired. Please login again.');
+    throw error;
+  }
+};
+
+// ✅ UPDATED: Response interceptor - Handle 401 with refresh token
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem(STORAGE_KEYS.TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401 and not already retried, try refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        console.log('🔄 401 error - attempting token refresh...');
+        const newAccessToken = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        console.error('❌ Token refresh failed - redirecting to login');
+        return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
   }
 );
 
 export const bookingService = {
   /**
-   * ✅ COMPLETE: Create booking with all required fields
+   * ✅ COMPLETE: Create booking with all required fields + TOKEN VALIDATION
    */
   createBooking: async (bookingData) => {
     try {
       const tokenKey = STORAGE_KEYS.TOKEN;
       const token = localStorage.getItem(tokenKey);
       
+      // ✅ VALIDATE: Check token exists
       if (!token) {
+        handleAuthError('Please login to continue booking');
         throw new Error('Authentication required. Please login first.');
       }
+
+      // ✅ VALIDATE: Check token is not expired
+      if (isTokenExpired(token)) {
+        handleAuthError('Your session has expired. Please login again.');
+        throw new Error('Token expired. Please login again.');
+      }
+
+      // ✅ DEBUG: Log token info
+      const decoded = decodeJWT(token);
+      console.log('🔐 Token Info:', {
+        customerId: decoded?.customerId,
+        expiresAt: decoded?.exp ? new Date(decoded.exp * 1000) : 'Unknown',
+        issuedAt: decoded?.iat ? new Date(decoded.iat * 1000) : 'Unknown'
+      });
 
       // Validate required fields
       const requiredFields = {
@@ -117,6 +252,8 @@ export const bookingService = {
         throw new Error('Maximum rental duration is 30 days');
       }
 
+
+        
       // ✅ COMPLETE PAYLOAD: All required fields for backend
       const requestPayload = {
         // Vehicle
@@ -171,10 +308,14 @@ export const bookingService = {
         bookingStatus: bookingData.bookingStatus || 1
       };
 
+      console.log('📋 Creating booking request for vehicle ID:', bookingData.vehicleId);
       const response = await apiClient.post('/api/booking-bikes/create', requestPayload);
+      console.log('✅ Booking created successfully:', response.data);
       return response.data;
 
     } catch (error) {
+      console.error('❌ Booking creation error:', error);
+      
       if (error.response) {
         const errorData = error.response.data;
         const status = error.response.status;
@@ -468,6 +609,87 @@ export const bookingService = {
       throw new Error('Failed to fetch invoice');
     }
   },
+
+   checkDocumentVerification: async (userId) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      const tokenKey = STORAGE_KEYS.TOKEN;
+      const token = localStorage.getItem(tokenKey);
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await apiClient.get(`/api/documents/${userId}`);
+      console.log('📄 Document verification response:', response.data);
+
+      const documents = response.data;
+      
+      if (!documents) {
+        return {
+          verified: false,
+          uploaded: false,
+          pending: false,
+          rejected: false,
+          message: 'No documents uploaded'
+        };
+      }
+
+      // Backend values: 0=PENDING, 1=VERIFIED, 2=REJECTED
+      const adhaarFrontVerified = documents.isAdhaarFrontVerified === 1;
+      const adhaarBackVerified = documents.isAdhaarBackVerified === 1;
+      const licenseVerified = documents.isLicenseVerified === 1;
+
+      const adhaarFrontPending = documents.isAdhaarFrontVerified === 0;
+      const adhaarBackPending = documents.isAdhaarBackVerified === 0;
+      const licensePending = documents.isLicenseVerified === 0;
+
+      const adhaarFrontRejected = documents.isAdhaarFrontVerified === 2;
+      const adhaarBackRejected = documents.isAdhaarBackVerified === 2;
+      const licenseRejected = documents.isLicenseVerified === 2;
+
+      const adhaarFrontUploaded = documents.adhaarFrontImage && documents.adhaarFrontImage.trim() !== '';
+      const adhaarBackUploaded = documents.adhaarBackImage && documents.adhaarBackImage.trim() !== '';
+      const licenseUploaded = documents.drivingLicenseImage && documents.drivingLicenseImage.trim() !== '';
+
+      const allUploaded = adhaarFrontUploaded && adhaarBackUploaded && licenseUploaded;
+      const isVerified = adhaarFrontVerified && adhaarBackVerified && licenseVerified;
+      const isPending = adhaarFrontPending || adhaarBackPending || licensePending;
+      const isRejected = adhaarFrontRejected || adhaarBackRejected || licenseRejected;
+
+      return {
+        verified: isVerified,
+        uploaded: allUploaded,
+        pending: isPending,
+        rejected: isRejected,
+        documents: documents,
+        message: isVerified ? 'All documents verified' : 
+                 isRejected ? 'Some documents rejected' : 
+                 isPending ? 'Documents pending verification' : 
+                 !allUploaded ? 'Upload all required documents' :
+                 'Documents not verified'
+      };
+
+    } catch (error) {
+      console.error('❌ Document verification check error:', error);
+      
+      if (error.response?.status === 404) {
+        return {
+          verified: false,
+          uploaded: false,
+          pending: false,
+          rejected: false,
+          message: 'No documents uploaded'
+        };
+      }
+
+      throw error;
+    }
+  },
+
 
   /**
    * Validate booking dates
